@@ -8,7 +8,51 @@
   <title>REV Community — Drift Academy</title>
 </head>
 <body>
-  <div id="app">
+
+  <section id="portal" class="portal" aria-label="REV Community Drift Academy start screen">
+    <div class="portal-texture" aria-hidden="true"></div>
+    <header class="portal-top">
+      <div class="logo portal-logo"><span class="rev">REV<span class="slash">/</span></span><span class="brand-caption">COMMUNITY<br/><strong>DRIFT ACADEMY</strong></span></div>
+      <div class="portal-origin">YOU VS AI <span class="portal-divider">/</span> GARAGE EXPANSION</div>
+      <div class="portal-version"><span class="pulse"></span> EARLY ACCESS · PLAYABLE PREVIEW</div>
+    </header>
+    <div class="portal-main">
+      <div class="portal-intro">
+        <div class="portal-chapter">PARKER'S GARAGE <span>CHAPTER 01 / DRIFT</span></div>
+        <div class="portal-line"></div>
+        <h1>BUILT FOR<br/>THE <em>DRIVE.</em></h1>
+        <p class="portal-lead">Pick your car. Find your line. Build something worth driving.</p>
+        <p class="portal-copy">Step out of the Schoolhouse and into REV Community's driving academy. Practice drifting on a closed course, discover original cars, and make the garage your own.</p>
+        <div class="portal-actions">
+          <button class="portal-button primary" id="portalStart"><span>ENTER DRIFT MODE</span><span class="portal-button-icon">↗</span></button>
+          <button class="portal-button ghost" id="portalGarage"><span>EXPLORE THE GARAGE</span><span>›</span></button>
+        </div>
+        <div class="portal-feature-grid">
+          <div><span>01</span><strong>PRACTICE</strong><small>Learn to hold a drift</small></div>
+          <div><span>02</span><strong>CUSTOMIZE</strong><small>Cars, paint and tuning</small></div>
+          <div><span>03</span><strong>EXPLORE</strong><small>Community world preview</small></div>
+        </div>
+      </div>
+      <div class="portal-showcase">
+        <div class="portal-stage-heading">THE FIRST DRIVE <span>001 / 015</span></div>
+        <div id="portalCarStage" class="portal-car-stage" aria-label="Rotating 3D preview of an original drift car">
+          <div class="portal-stage-placeholder">LOADING GARAGE VIEW…</div>
+        </div>
+        <div class="portal-showcase-info">
+          <div><span>STARTER CAR</span><strong>KISORA / NOVA S</strong></div>
+          <div><span>CLASS</span><strong>RWD DRIFT COUPE</strong></div>
+          <div><span>MODE</span><strong>SOLO PRACTICE</strong></div>
+        </div>
+        <div class="portal-showcase-caption">Original concept cars · no real-world manufacturer affiliation</div>
+      </div>
+    </div>
+    <footer class="portal-footer">
+      <div>DRIVEN BY CARS. <span>CONNECTED BY COMMUNITY.</span></div>
+      <button id="portalWorld" class="portal-text-link">EXPLORE THE WORLD <span>↗</span></button>
+      <small>OFFLINE PRACTICE · CLOSED COURSE ONLY · NO REAL-WORLD RACING</small>
+    </footer>
+  </section>
+  <div id="app" class="app-inactive">
     <header class="topbar">
       <div class="logo"><span class="rev">REV<span class="slash">/</span></span><span class="brand-caption">COMMUNITY<br/><strong>DRIFT ACADEMY</strong></span></div>
       <nav class="nav" aria-label="Game sections">
@@ -17,7 +61,7 @@
         <button class="nav-btn" data-tab="challenges">CHALLENGES</button>
         <button class="nav-btn" data-tab="world">WORLD</button>
       </nav>
-      <div class="status"><span class="pulse"></span> PROTOTYPE 0.1</div>
+      <div class="status"><span class="pulse"></span> PROTOTYPE 0.1</div><button class="exit-portal" id="exitToPortal" title="Return to Parker’s Garage">‹ BACK TO GARAGE</button>
     </header>
     <main class="game-shell">
       <section class="viewport" aria-label="3D drift practice arena">
