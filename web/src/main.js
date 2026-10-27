@@ -324,7 +324,7 @@ $('carSelect').addEventListener('change',e=>setCar(e.target.value));
 $('gripTune').addEventListener('input',updateTuning);
 $('handlingTune').addEventListener('input',updateTuning);
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
-$('driveSelected').addEventListener('click',()=>{state=resetAt();showTab('drive');showToast('Drive carefully. Find your line.');});
+$('driveSelected').addEventListener('click',()=>{setActiveTrack(activeTrack.id,{announce:false});showTab('drive');showToast('Find your line on the closed course.');});
 $('resetButton').addEventListener('click',()=>{state=resetAt(state.x,state.z,state.heading);showToast('Vehicle reset');});
 $('cameraButton').addEventListener('click',()=>{cameraMode=(cameraMode+1)%3;showToast(['CHASE CAM','OVERHEAD CAM','LOW FOLLOW CAM'][cameraMode]);});
 $('clearScores').addEventListener('click',()=>{bestScore=0;state=resetAt(state.x,state.z,state.heading);try{localStorage.removeItem('rev-drift-best')}catch{}renderChallenges();showToast('Practice score history cleared');});
@@ -338,8 +338,12 @@ window.addEventListener('keydown',e=>{
   if(typing)return;
   if(setKey(e.code,true))e.preventDefault();
   if(e.repeat)return;
-  if(e.code==='KeyR')state=resetAt(state.x,state.z,state.heading);
+  if(e.code==='KeyR')setActiveTrack(activeTrack.id,{announce:false});
   if(e.code==='KeyC')cameraMode=(cameraMode+1)%3;
+  if(e.code==='KeyM'&&gameActive)setDriveMode(driveMode==='drift'?'grip':'drift');
+  if(e.code==='KeyG'&&gameActive)showTab(activeTab==='world'?'drive':'world');
+  if(e.code==='KeyE'&&gameActive&&!departmentOpen)openNearbyDepartment();
+  if(e.code==='Escape'&&departmentOpen)closeDepartment();
 });
 window.addEventListener('keyup',e=>{if(setKey(e.code,false))e.preventDefault();});
 window.addEventListener('blur',()=>Object.keys(controls).forEach(k=>controls[k]=false));
@@ -352,6 +356,7 @@ document.querySelectorAll('[data-control]').forEach(btn=>{
 });
 setCar('nova');$('carSelect').value='nova';
 $('category').value='All';
+setActiveTrack('north-pines',{announce:false});
 
 // First-party entry screen for a future Schoolhouse / Garage button.
 // The portfolio Schoolhouse does not call or receive financial services here.
@@ -376,6 +381,7 @@ function returnToGarage() {
   gameActive=false;
   for(const key of Object.keys(controls)) controls[key]=false;
   state=resetAt();
+  closeDepartment();
   portal.hidden=false;
   app.classList.add('app-inactive');
   portalStage.append(canvas);
@@ -383,7 +389,8 @@ function returnToGarage() {
   try{localStorage.setItem('rev-drift-best',String(bestScore));}catch{}
   resize();
 }
-$('portalStart').addEventListener('click',()=>launchMode('drive'));
+$('portalStart').addEventListener('click',()=>{setDriveMode('drift',{announce:false});setActiveTrack('north-pines',{announce:false});launchMode('drive');});
+$('portalGrip').addEventListener('click',()=>{setDriveMode('grip',{announce:false});setActiveTrack('outer-express',{announce:false});launchMode('drive');});
 $('portalGarage').addEventListener('click',()=>launchMode('garage'));
 $('portalWorld').addEventListener('click',()=>launchMode('world'));
 $('exitToPortal').addEventListener('click',returnToGarage);
@@ -391,8 +398,11 @@ function openRequestedMode() {
   const q=new URLSearchParams(location.search);
   const hash=location.hash.replace(/^#\/?/,'').toLowerCase();
   const selected=(q.get('mode')||hash).toLowerCase();
-  const known=['drift','drive','garage','world','challenges'];
-  if(known.includes(selected)) launchMode(selected==='drift'?'drive':selected);
+  const known=['drift','drive','grip','race','garage','world','challenges'];
+  if(known.includes(selected)){
+    if(selected==='grip'||selected==='race'){setDriveMode('grip',{announce:false});setActiveTrack('outer-express',{announce:false});launchMode('drive');}
+    else{if(selected==='drift'||selected==='drive')setActiveTrack('north-pines',{announce:false});launchMode(selected==='drift'?'drive':selected);}
+  }
 }
 
 function createSmokePool(){
