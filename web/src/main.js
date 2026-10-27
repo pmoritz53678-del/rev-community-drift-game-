@@ -26,6 +26,7 @@ const clock=new THREE.Clock();
 const controls={left:false,right:false,throttle:false,brake:false,handbrake:false};
 let state=newCarState(),baseCar=findCar('nova'),tunedCar={...baseCar};
 let vehicle=null,currentColor=baseCar.color,cameraMode=0,activeZone='SUNSET PRACTICE PAD';
+let activeTab='drive',gameActive=false,portalOrbit=0;
 let bestScore=0,lastSaved=0,lastSmoke=0,noticeTimer=0;
 try{bestScore=Number(localStorage.getItem('rev-drift-best')||0)}catch{}
 const PAINTS=[
@@ -265,6 +266,8 @@ function renderPaints(){
   }
 }
 function showTab(name){
+  activeTab=name;
+  for(const control of Object.keys(controls)) controls[control]=false;
   document.querySelectorAll('[data-pane]').forEach(el=>el.classList.toggle('hidden',el.dataset.pane!==name));
   document.querySelectorAll('[data-tab]').forEach(el=>el.classList.toggle('active',el.dataset.tab===name));
   if(name==='challenges')renderChallenges();
@@ -330,6 +333,49 @@ document.querySelectorAll('[data-control]').forEach(btn=>{
 });
 setCar('nova');$('carSelect').value='nova';
 $('category').value='All';
+
+// First-party entry screen for a future Schoolhouse / Garage button.
+// The portfolio Schoolhouse does not call or receive financial services here.
+// A direct URL like ?mode=drift may be linked by a separate approved host.
+const portal=$('portal'),app=$('app'),portalStage=$('portalCarStage');
+const viewport=document.querySelector('.viewport');
+portalStage.append(canvas);
+portalStage.querySelector('.portal-stage-placeholder')?.remove();
+
+function launchMode(tab='drive') {
+  portal.hidden=true;
+  app.classList.remove('app-inactive');
+  if(canvas.parentElement!==viewport) viewport.insertBefore(canvas,viewport.firstChild);
+  gameActive=true;
+  for(const key of Object.keys(controls)) controls[key]=false;
+  showTab(tab);
+  history.replaceState(null,'',location.pathname+'#/'+tab);
+  resize();
+  showToast(tab==='drive'?'WELCOME TO REV DRIFT ACADEMY':'YOUR GARAGE IS READY');
+}
+function returnToGarage() {
+  gameActive=false;
+  for(const key of Object.keys(controls)) controls[key]=false;
+  state=resetAt();
+  portal.hidden=false;
+  app.classList.add('app-inactive');
+  portalStage.append(canvas);
+  history.replaceState(null,'',location.pathname+'#/home');
+  try{localStorage.setItem('rev-drift-best',String(bestScore));}catch{}
+  resize();
+}
+$('portalStart').addEventListener('click',()=>launchMode('drive'));
+$('portalGarage').addEventListener('click',()=>launchMode('garage'));
+$('portalWorld').addEventListener('click',()=>launchMode('world'));
+$('exitToPortal').addEventListener('click',returnToGarage);
+function openRequestedMode() {
+  const q=new URLSearchParams(location.search);
+  const hash=location.hash.replace(/^#\/?/,'').toLowerCase();
+  const selected=(q.get('mode')||hash).toLowerCase();
+  const known=['drift','drive','garage','world','challenges'];
+  if(known.includes(selected)) launchMode(selected==='drift'?'drive':selected);
+}
+
 function createSmokePool(){
   const material=new THREE.MeshBasicMaterial({color:0xd2d0c5,transparent:true,opacity:.22,depthWrite:false});
   const pool=[];
@@ -398,8 +444,45 @@ function frame(now=0){
   saveBest(now);
   renderer.render(scene,camera);
 }
+function frame(now=0){
+  requestAnimationFrame(frame);
+  const dt=Math.min(clock.getDelta(),.05);
+  if(gameActive){
+    if(activeTab==='drive'){
+      const command={
+        steer:Number(controls.right)-Number(controls.left),
+        throttle:Number(controls.throttle),
+        brake:Number(controls.brake),
+        handbrake:controls.handbrake,
+      };
+      state=stepCar(state,command,tunedCar,dt);
+      if(Math.abs(state.x)>117||Math.abs(state.z)>117){
+        state=resetAt();showToast('Back inside the practice boundary');
+      }
+      if(state.drifting && now-lastSmoke>65){lastSmoke=now;spawnSmoke();}
+    }
+    vehicle.position.set(state.x,.1,state.z);
+    vehicle.rotation.y=state.heading;
+    animateSmoke(dt);
+    setCamera(dt);
+    hud();
+    saveBest(now);
+  }else{
+    // The exact same 3D car is rendered as a cinematic menu preview.
+    // Steering / scoring only operate AFTER Parker presses Enter Drift Mode.
+    portalOrbit+=dt*.19;
+    vehicle.position.set(0,.11,0);
+    vehicle.rotation.y=portalOrbit;
+    camera.position.lerp(new THREE.Vector3(8.6+Math.sin(portalOrbit*.32)*2,4.9,10.8),Math.min(1,dt*3.2));
+    camera.lookAt(new THREE.Vector3(0,1.05,0));
+    animateSmoke(dt);
+  }
+  renderer.render(scene,camera);
+}
 const observer=new ResizeObserver(resize);
-observer.observe(canvas.parentElement);
+observer.observe(viewport);
+observer.observe(portalStage);
 resize();
-camera.position.set(0,8,18);
+camera.position.set(8,5,11);
+openRequestedMode();
 requestAnimationFrame(frame);
