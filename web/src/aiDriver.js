@@ -36,17 +36,21 @@ export function calculateAIDriverAction(bot,player,track,car){
   const dx=target.x-bot.state.x,dz=target.z-bot.state.z;
   const targetHeading=Math.atan2(-dx,-dz);
   const headingError=wrap(targetHeading-bot.state.heading);
-  const steer=clamp(headingError*1.55,-1,1);
+  let steer=clamp(headingError*1.55,-1,1);
   const a=pointOnTrack(track,progress+lookahead),
         b=pointOnTrack(track,progress+lookahead+.013),
         c=pointOnTrack(track,progress+lookahead+.026);
   const h1=Math.atan2(-(b.x-a.x),-(b.z-a.z));
   const h2=Math.atan2(-(c.x-b.x),-(c.z-b.z));
-  const turn=Math.abs(wrap(h2-h1));
+  const curve=wrap(h2-h1);
+  const turn=Math.abs(curve);
+  // Drift practice: add curvature feed-forward to create controllable rear slip.
+  // Steering still reacts to the path error through the same car physics as the player.
+  steer=clamp(headingError*2.4+Math.sign(curve)*.7,-1,1);
   const targetSpeed=clamp(63-turn*115+(bot.role==='CHASE'?5:0),35,79);
   const throttle=clamp((targetSpeed-speed)/21+.43,0,1);
   const brake=clamp((speed-targetSpeed-8)/19,0,1);
-  const handbrake=turn>.18&&speed>43&&current.inside&&Math.abs(headingError)<1;
+  const handbrake=turn>.005&&speed>30&&current.inside&&Math.abs(headingError)<1;
   return {steer,throttle,brake,handbrake,progress:current.progress,offTrack:!current.inside};
 }
 export function stepAIDriver(bot,player,track,car,dt){
