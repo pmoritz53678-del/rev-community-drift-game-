@@ -276,6 +276,7 @@ function syncAIDriver(){
 }
 $('aiRoleSelect').addEventListener('change',event=>{
   aiRole=event.target.value;
+  event.target.blur(); // Return keyboard control to the driving session.
   syncAIDriver();
   showToast(aiRole==='off'?'SOLO PRACTICE':'AI '+aiRole.toUpperCase()+' PARTNER READY');
 });
@@ -353,6 +354,7 @@ for(const dept of DEPARTMENTS){
 }
 $('quickTrack').addEventListener('change',e=>{
   const track=findTrack(e.target.value);
+  e.target.blur();
   setDriveMode(track.kind==='race'?'grip':'drift',{announce:false});
   setActiveTrack(track.id);
 });
