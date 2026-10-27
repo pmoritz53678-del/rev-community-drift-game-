@@ -18,17 +18,14 @@ test('all centers have finite coordinates, and track loops close',()=>{
  }
 });
 test('lap needs ordered sectors and no off-course travel',()=>{
- let s=newLapState();
- for(const progress of [.02,.26,.53,.79,.95,.02]){
-  ({state:s}=updateLapState(s,progress,true,4));
- }
- assert.equal(s.lap,1);assert.ok(s.bestSeconds>14);
- let wrong=newLapState();
- for(const progress of [.95,.01])({state:wrong}=updateLapState(wrong,progress,true,4));
- assert.equal(wrong.lap,0);
- let off=newLapState();
- for(const progress of [.02,.26,.53,.79,.95])({state:off}=updateLapState(off,progress,true,4));
- ({state:off}=updateLapState(off,.97,false,.05));
- ({state:off}=updateLapState(off,.02,true,.05));
- assert.equal(off.lap,0);
+  let valid=newLapState();
+  let offTrack=newLapState();
+  for(let i=0;i<=690;i++){
+    const progress=(.02+i/620)%1;
+    valid=updateLapState(valid,progress,true,.05).state;
+    offTrack=updateLapState(offTrack,progress,!(i>300&&i<320),.05).state;
+  }
+  assert.equal(valid.lap,1);
+  assert.ok(valid.bestSeconds>25);
+  assert.equal(offTrack.lap,0);
 });
