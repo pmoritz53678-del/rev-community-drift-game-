@@ -7,6 +7,9 @@ import {DEPARTMENTS, nearbyDepartment, canEnterDepartment} from './world.js';
 import {buildSchoolyardWorld} from './renderSchoolyard.js';
 import {drawSchoolMap} from './mapUI.js';
 import {createCircuitTraffic, advanceCircuitTraffic, trafficPose, evaluateCircuitTraffic} from './circuitTraffic.js';
+import {BODY_KITS,WHEEL_KITS,WING_KITS,normalizeBuild,getBuildStats,validateCustomizations} from './kits.js';
+import {buildCar} from './carVisuals.js';
+import {createAIDriver,stepAIDriver} from './aiDriver.js';
 
 
 // REV COMMUNITY DRIFT ACADEMY v0.1
@@ -32,6 +35,10 @@ const clock=new THREE.Clock();
 const controls={left:false,right:false,throttle:false,brake:false,handbrake:false};
 let state=newCarState(),baseCar=findCar('nova'),tunedCar={...baseCar};
 let vehicle=null,currentColor=baseCar.color,cameraMode=0,activeZone='SUNSET PRACTICE PAD';
+let savedBuilds={};
+try{savedBuilds=validateCustomizations(JSON.parse(localStorage.getItem('rev-custom-builds-v1')||'{}'));}catch{}
+let currentBuild=normalizeBuild(savedBuilds[baseCar.id]);
+let aiRole='off',aiDriver=null,aiCarVisual=null,tandemPoints=0;
 let activeTab='drive',gameActive=false,portalOrbit=0;
 
 let activeTrack=findTrack('north-pines');
@@ -90,54 +97,6 @@ function addCones(cx,cz,radius,count=12) {
     createBox(.65,.07,.65,new THREE.MeshStandardMaterial({color:0xf3e4cc}),x,.05,z);
   }
 }
-function buildCar(car,color){
-  const g=new THREE.Group();g.name='original-fictional-car';
-  const isExotic=car.shape==='exotic'||car.shape==='hyper';
-  const isWagon=car.shape==='wagon';
-  const length=isExotic?4.6:isWagon?5.2:4.35;
-  const width=isExotic?2.18:2.0;
-  const bodyH=isExotic?.39:.51;
-  const mat=new THREE.MeshStandardMaterial({color,metalness:.7,roughness:.29});
-  const carbon=new THREE.MeshStandardMaterial({color:0x151c20,metalness:.25,roughness:.33});
-  const glass=new THREE.MeshStandardMaterial({color:0x3c606c,metalness:.25,roughness:.15,transparent:true,opacity:.85});
-  const light=new THREE.MeshBasicMaterial({color:0xe6e7e4});
-  const rearLight=new THREE.MeshBasicMaterial({color:0xde443c});
-  // Body, nose, hood, and cockpit.
-  createBox(width,bodyH,length,mat,0,.73,0,g);
-  createBox(width*.89,.17,length*.43,mat,0,.98,-length*.23,g);
-  createBox(width*.76,isExotic?.33:.41,length*(isWagon?.56:.42),glass,0,1.21,isWagon?.19:.10,g);
-  const roof=createBox(width*.77,.13,length*(isWagon?.56:.39),mat,0,1.42,isWagon?.18:.11,g);
-  if(isExotic){roof.position.y=1.31;}
-  createBox(width*.71,.1,.08,carbon,0,1.03,-length*.27,g);
-  createBox(width*.8,.24,.12,carbon,0,.70,-length/2+.01,g);
-  createBox(width*.81,.17,.08,carbon,0,.66,length/2-.04,g);
-  // Light clusters and grille.
-  for(const side of [-1,1]){
-    createBox(.44,.11,.06,light,side*width*.31,.88,-length/2-.03,g);
-    createBox(.48,.12,.06,rearLight,side*width*.30,.81,length/2+.03,g);
-    const tire=new THREE.Mesh(new THREE.CylinderGeometry(.43,.43,.27,18),new THREE.MeshStandardMaterial({color:0x0e1114,roughness:.96}));
-    const hub=new THREE.Mesh(new THREE.CylinderGeometry(.29,.29,.285,10),new THREE.MeshStandardMaterial({color:0x8b9594,metalness:.82,roughness:.25}));
-    for(const z of [-length*.32,length*.32]){
-      const wheel=tire.clone(),rim=hub.clone();
-      wheel.rotation.z=Math.PI/2;rim.rotation.z=Math.PI/2;
-      wheel.position.set(side*(width/2+.04),.42,z);
-      rim.position.set(side*(width/2+.09),.42,z);
-      g.add(wheel,rim);
-      const caliper=createBox(.09,.30,.20,new THREE.MeshStandardMaterial({color:0xc84137,metalness:.2,roughness:.35}),side*(width/2-.05),.46,z-.15,g);
-      caliper.name='red-brake-caliper';
-    }
-  }
-  if(isExotic){
-    createBox(width*.92,.08,.30,carbon,0,1.02,length*.47,g);
-    createBox(.12,.35,.08,carbon,-width*.35,.90,length*.47,g);
-    createBox(.12,.35,.08,carbon,width*.35,.90,length*.47,g);
-  }
-  if(car.id==='ranger'){
-    const stripe=createBox(.06,.17,length*.7,warm,width*.51,.71,0,g);
-    stripe.name='community-support-accent';
-  }
-  return g;
-}
 function resize(){
   const rect=canvas.parentElement.getBoundingClientRect();
   const width=Math.max(1,Math.round(rect.width)),height=Math.max(1,Math.round(rect.height));
@@ -150,18 +109,84 @@ function showToast(message){
   toast.classList.add('show');clearTimeout(noticeTimer);
   noticeTimer=setTimeout(()=>toast.classList.remove('show'),2500);
 }
+function saveCustomBuild(){
+  savedBuilds[baseCar.id]=normalizeBuild({...currentBuild,paint:currentColor});
+  try{localStorage.setItem('rev-custom-builds-v1',JSON.stringify(savedBuilds));}catch{}
+}
+function disposeVehicle(group){
+  if(!group)return;
+  scene.remove(group);
+  group.traverse(child=>{
+    if(child.isMesh && child.geometry)child.geometry.dispose();
+    if(child.isMesh && child.material){
+      const materials=Array.isArray(child.material)?child.material:[child.material];
+      for(const m of materials)m.dispose();
+    }
+  });
+}
+function repaintVehicle(){
+  if(vehicle)disposeVehicle(vehicle);
+  vehicle=buildCar(baseCar,currentColor,currentBuild);
+  scene.add(vehicle);
+  if(vehicle){
+    vehicle.position.set(state.x,.1,state.z);
+    vehicle.rotation.y=state.heading;
+  }
+}
+function fillKitSelect(id,items){
+  const select=$(id);
+  select.innerHTML='';
+  for(const kit of items){
+    const option=document.createElement('option');
+    option.value=kit.id;option.textContent=kit.name;
+    select.append(option);
+  }
+}
+function updateBuildDescription(){
+  const kit=BODY_KITS.find(x=>x.id===currentBuild.bodyKit)||BODY_KITS[0];
+  $('buildDescription').textContent=kit.description+' · Original REV tuner parts · Saved to this browser';
+}
+function reflectCustomBuild(){
+  $('bodyKitSelect').value=currentBuild.bodyKit;
+  $('wheelKitSelect').value=currentBuild.wheels;
+  $('wingKitSelect').value=currentBuild.wing;
+  document.querySelectorAll('.paint-chip').forEach(chip=>
+    chip.classList.toggle('selected',Number(chip.dataset.paint)===currentColor));
+  updateBuildDescription();
+}
 function updateTuning(){
-  const grip=Number($('gripTune').value),handling=Number($('handlingTune').value);
-  $('gripValue').textContent=grip;$('handlingValue').textContent=handling;
-  tunedCar={...baseCar,grip,handling};
+  const baseline=getBuildStats(baseCar,currentBuild);
+  const grip=Number($('gripTune').value),
+        handling=Number($('handlingTune').value);
+  $('gripValue').textContent=grip;
+  $('handlingValue').textContent=handling;
+  tunedCar={...baseline,grip,handling};
+}
+function applyBuildKit(){
+  currentBuild=normalizeBuild({
+    bodyKit:$('bodyKitSelect').value,
+    wheels:$('wheelKitSelect').value,
+    wing:$('wingKitSelect').value,
+    paint:currentColor
+  });
+  const stats=getBuildStats(baseCar,currentBuild);
+  $('gripTune').value=stats.grip;
+  $('handlingTune').value=stats.handling;
+  updateTuning();
+  reflectCustomBuild();
+  repaintVehicle();
+  saveCustomBuild();
+  showToast('Garage setup saved · '+(BODY_KITS.find(k=>k.id===currentBuild.bodyKit)?.name||'Factory'));
 }
 function setCar(id){
   baseCar=findCar(id);
-  $('gripTune').value=baseCar.grip;$('handlingTune').value=baseCar.handling;
+  currentBuild=normalizeBuild(savedBuilds[baseCar.id]);
+  currentColor=currentBuild.paint===null?baseCar.color:currentBuild.paint;
+  const stats=getBuildStats(baseCar,currentBuild);
+  $('gripTune').value=stats.grip;
+  $('handlingTune').value=stats.handling;
   updateTuning();
-  currentColor=baseCar.color;
-  if(vehicle)scene.remove(vehicle);
-  vehicle=buildCar(baseCar,currentColor);scene.add(vehicle);
+  repaintVehicle();
   state=resetAt(state.x,state.z,state.heading);
   $('carName').textContent=baseCar.brand+' '+baseCar.model;
   $('driveCar').textContent=baseCar.brand+' '+baseCar.model;
@@ -172,9 +197,9 @@ function setCar(id){
   $('carClass').textContent=baseCar.category;
   $('carStory').textContent=baseCar.story;
   $('power').textContent=baseCar.power+' HP';
-  $('weight').textContent=baseCar.weight+' KG';
+  $('weight').textContent=tunedCar.weight+' KG';
   $('drivetrain').textContent=baseCar.drive;
-  document.querySelectorAll('.paint-chip').forEach(chip=>chip.classList.toggle('selected',Number(chip.dataset.paint)===currentColor));
+  reflectCustomBuild();
 }
 function selectCategory(){
   const selected=$('category').value;
@@ -196,14 +221,20 @@ function renderPaints(){
     chip.style.background='#'+paint.value.toString(16).padStart(6,'0');
     chip.addEventListener('click',()=>{
       currentColor=paint.value;
-      if(vehicle)scene.remove(vehicle);
-      vehicle=buildCar(baseCar,currentColor);scene.add(vehicle);
-      document.querySelectorAll('.paint-chip').forEach(el=>el.classList.toggle('selected',Number(el.dataset.paint)===currentColor));
+      currentBuild=normalizeBuild({...currentBuild,paint:currentColor});
+      repaintVehicle();
+      reflectCustomBuild();
+      saveCustomBuild();
       showToast(paint.name+' paint applied');
     });
     $('paints').append(chip);
   }
 }
+fillKitSelect('bodyKitSelect',BODY_KITS);
+fillKitSelect('wheelKitSelect',WHEEL_KITS);
+fillKitSelect('wingKitSelect',WING_KITS);
+for(const id of ['bodyKitSelect','wheelKitSelect','wingKitSelect'])
+  $(id).addEventListener('change',applyBuildKit);
 function showTab(name){
   activeTab=name;
   for(const control of Object.keys(controls)) controls[control]=false;
