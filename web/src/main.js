@@ -1,0 +1,644 @@
+import * as THREE from 'three';
+import './style.css';
+import {CARS,CATEGORIES,findCar} from './roster.js';
+import {newCarState,stepCar,resetAt} from './physics.js';
+import {TRACKS, findTrack, getTrackSpawn, pointOnTrack, sampleTrack, onTrack, newLapState, updateLapState} from './tracks.js';
+import {DEPARTMENTS, nearbyDepartment, canEnterDepartment} from './world.js';
+import {buildSchoolyardWorld} from './renderSchoolyard.js';
+import {drawSchoolMap} from './mapUI.js';
+import {createCircuitTraffic, advanceCircuitTraffic, trafficPose, evaluateCircuitTraffic} from './circuitTraffic.js';
+import {BODY_KITS,WHEEL_KITS,WING_KITS,normalizeBuild,getBuildStats,validateCustomizations} from './kits.js';
+import {buildCar} from './carVisuals.js';
+import {createAIDriver,stepAIDriver} from './aiDriver.js';
+
+
+// REV COMMUNITY DRIFT ACADEMY v0.1
+// Procedural THREE.JS preview scene. The Unreal project is a separate future native build.
+// All driving values are standalone arcade physics and cannot modify the You vs AI ledgers.
+const $ = (id)=>document.getElementById(id);
+const canvas=$('gameCanvas');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x182a2e);
+scene.fog=new THREE.FogExp2(0x182a2e,0.007);
+const camera=new THREE.PerspectiveCamera(63,1,0.1,700);
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1,1.75));
+renderer.shadowMap.enabled=false;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.65;
+scene.add(new THREE.HemisphereLight(0xb4d5dc,0x665848,2.2));
+const sun=new THREE.DirectionalLight(0xffd0a0,3.3);
+sun.position.set(-70,100,35);
+scene.add(sun);
+const clock=new THREE.Clock();
+const controls={left:false,right:false,throttle:false,brake:false,handbrake:false};
+let state=newCarState(),baseCar=findCar('nova'),tunedCar={...baseCar};
+let vehicle=null,currentColor=baseCar.color,cameraMode=0,activeZone='SUNSET PRACTICE PAD';
+let savedBuilds={};
+try{savedBuilds=validateCustomizations(JSON.parse(localStorage.getItem('rev-custom-builds-v1')||'{}'));}catch{}
+let currentBuild=normalizeBuild(savedBuilds[baseCar.id]);
+let aiRole='off',aiDriver=null,aiCarVisual=null,tandemPoints=0;
+let activeTab='drive',gameActive=false,portalOrbit=0;
+
+let activeTrack=findTrack('north-pines');
+let driveMode='drift';
+let lapState=newLapState(),nearPasses=0,collisions=0,raceScore=0,lastMapDraw=0;
+let departmentOpen=false,currentDepartment=null;
+let circuitTraffic=createCircuitTraffic(11);
+let circuitVehicles=[];
+const trackSamples=new Map(TRACKS.map(t=>[t.id,sampleTrack(t,160)]));
+
+let bestScore=0,lastSaved=0,lastSmoke=0,noticeTimer=0;
+try{bestScore=Number(localStorage.getItem('rev-drift-best')||0)}catch{}
+const PAINTS=[
+  {name:'Factory Silver',value:0x9ba5ab},{name:'Midnight Black',value:0x22272a},
+  {name:'Motorsport Green',value:0x416d57},{name:'Signal Orange',value:0xed6b36},
+  {name:'Championship Red',value:0xd44747},{name:'Pearl White',value:0xe9e9df},
+];
+const CHALLENGES=[
+  {target:500,title:'First Slide',description:'Earn your first 500 drift points.'},
+  {target:2500,title:'Find Your Line',description:'Earn 2,500 drift points in a practice run.'},
+  {target:6000,title:'Drift Academy Graduate',description:'Earn 6,000 points in a single practice session.'},
+];
+const asphalt=new THREE.MeshStandardMaterial({color:0x30393a,roughness:0.94});
+const concrete=new THREE.MeshStandardMaterial({color:0x667277,roughness:0.95});
+const chalk=new THREE.MeshBasicMaterial({color:0xd8d5bf});
+const warm=new THREE.MeshStandardMaterial({color:0xd6a052,roughness:0.8});
+const green=new THREE.MeshStandardMaterial({color:0x294840,roughness:0.78});
+
+function createBox(w,h,d,material,x,y,z, parent=scene) {
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);
+  mesh.position.set(x,y,z);parent.add(mesh);return mesh;
+}
+function paintStripe(x,z,w,d,color=0xd5cfb8,y=0.015) {
+  createBox(w,0.025,d,new THREE.MeshBasicMaterial({color}),x,y,z);
+}
+function makeTextTexture(text,background='#1c3432',foreground='#f5e4ca'){
+  const cv=document.createElement('canvas');cv.width=1024;cv.height=256;
+  const ctx=cv.getContext('2d');ctx.fillStyle=background;ctx.fillRect(0,0,1024,256);
+  ctx.fillStyle='#e4a55d';ctx.fillRect(0,0,1024,9);
+  ctx.font='bold 59px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle=foreground;ctx.fillText(text,512,132,970);
+  const texture=new THREE.CanvasTexture(cv);texture.colorSpace=THREE.SRGBColorSpace;
+  return texture;
+}
+function sign(text,w,h,x,y,z,angle=Math.PI) {
+  const material=new THREE.MeshBasicMaterial({map:makeTextTexture(text),side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,h),material);
+  mesh.rotation.y=angle;mesh.position.set(x,y,z);scene.add(mesh);
+}
+function addCones(cx,cz,radius,count=12) {
+  for(let n=0;n<count;n++){
+    const t=(n/count)*Math.PI*2;
+    const x=cx+Math.cos(t)*radius,z=cz+Math.sin(t)*radius;
+    const cone=new THREE.Mesh(new THREE.ConeGeometry(.44,1.15,7),new THREE.MeshStandardMaterial({color:0xf58b47,roughness:0.8}));
+    cone.position.set(x,.58,z);scene.add(cone);
+    createBox(.65,.07,.65,new THREE.MeshStandardMaterial({color:0xf3e4cc}),x,.05,z);
+  }
+}
+function resize(){
+  const rect=canvas.parentElement.getBoundingClientRect();
+  const width=Math.max(1,Math.round(rect.width)),height=Math.max(1,Math.round(rect.height));
+  renderer.setSize(width,height,false);
+  camera.aspect=width/height;camera.updateProjectionMatrix();
+}
+buildSchoolyardWorld(scene);
+function showToast(message){
+  const toast=$('toast');toast.textContent=message;
+  toast.classList.add('show');clearTimeout(noticeTimer);
+  noticeTimer=setTimeout(()=>toast.classList.remove('show'),2500);
+}
+function saveCustomBuild(){
+  savedBuilds[baseCar.id]=normalizeBuild({...currentBuild,paint:currentColor});
+  try{localStorage.setItem('rev-custom-builds-v1',JSON.stringify(savedBuilds));}catch{}
+}
+function disposeVehicle(group){
+  if(!group)return;
+  scene.remove(group);
+  group.traverse(child=>{
+    if(child.isMesh && child.geometry)child.geometry.dispose();
+    // Materials may be reused by multiple preview cars; keep shared materials alive.
+  });
+}
+function repaintVehicle(){
+  if(vehicle)disposeVehicle(vehicle);
+  vehicle=buildCar(baseCar,currentColor,currentBuild);
+  scene.add(vehicle);
+  if(vehicle){
+    vehicle.position.set(state.x,.1,state.z);
+    vehicle.rotation.y=state.heading;
+  }
+}
+function fillKitSelect(id,items){
+  const select=$(id);
+  select.innerHTML='';
+  for(const kit of items){
+    const option=document.createElement('option');
+    option.value=kit.id;option.textContent=kit.name;
+    select.append(option);
+  }
+}
+function updateBuildDescription(){
+  const kit=BODY_KITS.find(x=>x.id===currentBuild.bodyKit)||BODY_KITS[0];
+  $('buildDescription').textContent=kit.description+' · Original REV tuner parts · Saved to this browser';
+}
+function reflectCustomBuild(){
+  $('bodyKitSelect').value=currentBuild.bodyKit;
+  $('wheelKitSelect').value=currentBuild.wheels;
+  $('wingKitSelect').value=currentBuild.wing;
+  document.querySelectorAll('.paint-chip').forEach(chip=>
+    chip.classList.toggle('selected',Number(chip.dataset.paint)===currentColor));
+  updateBuildDescription();
+}
+function updateTuning(){
+  const baseline=getBuildStats(baseCar,currentBuild);
+  const grip=Number($('gripTune').value),
+        handling=Number($('handlingTune').value);
+  $('gripValue').textContent=grip;
+  $('handlingValue').textContent=handling;
+  tunedCar={...baseline,grip,handling};
+}
+function applyBuildKit(){
+  currentBuild=normalizeBuild({
+    bodyKit:$('bodyKitSelect').value,
+    wheels:$('wheelKitSelect').value,
+    wing:$('wingKitSelect').value,
+    paint:currentColor
+  });
+  const stats=getBuildStats(baseCar,currentBuild);
+  $('gripTune').value=stats.grip;
+  $('handlingTune').value=stats.handling;
+  updateTuning();
+  reflectCustomBuild();
+  repaintVehicle();
+  saveCustomBuild();
+  showToast('Garage setup saved · '+(BODY_KITS.find(k=>k.id===currentBuild.bodyKit)?.name||'Factory'));
+}
+function setCar(id){
+  baseCar=findCar(id);
+  currentBuild=normalizeBuild(savedBuilds[baseCar.id]);
+  currentColor=currentBuild.paint===null?baseCar.color:currentBuild.paint;
+  const stats=getBuildStats(baseCar,currentBuild);
+  $('gripTune').value=stats.grip;
+  $('handlingTune').value=stats.handling;
+  updateTuning();
+  repaintVehicle();
+  state=resetAt(state.x,state.z,state.heading);
+  $('carName').textContent=baseCar.brand+' '+baseCar.model;
+  $('driveCar').textContent=baseCar.brand+' '+baseCar.model;
+  $('driveDrive').textContent=baseCar.drive==='RWD'?'REAR WHEEL':'ALL WHEEL';
+  $('driveType').textContent=baseCar.drive;
+  $('makeDisplay').textContent=baseCar.brand;
+  $('modelDisplay').textContent=baseCar.model;
+  $('carClass').textContent=baseCar.category;
+  $('carStory').textContent=baseCar.story;
+  $('power').textContent=baseCar.power+' HP';
+  $('weight').textContent=tunedCar.weight+' KG';
+  $('drivetrain').textContent=baseCar.drive;
+  reflectCustomBuild();
+}
+function selectCategory(){
+  const selected=$('category').value;
+  const options=CARS.filter(car=>selected==='All'||car.category===selected);
+  $('carSelect').innerHTML='';
+  for(const car of options){
+    const option=document.createElement('option');
+    option.value=car.id;option.textContent=car.brand+' '+car.model;
+    $('carSelect').append(option);
+  }
+  if(options.length){$('carSelect').value=options[0].id;setCar(options[0].id);}
+}
+function renderPaints(){
+  for(const paint of PAINTS){
+    const chip=document.createElement('button');
+    chip.className='paint-chip';chip.title=paint.name;
+    chip.dataset.paint=String(paint.value);
+    chip.setAttribute('aria-label','Apply '+paint.name);
+    chip.style.background='#'+paint.value.toString(16).padStart(6,'0');
+    chip.addEventListener('click',()=>{
+      currentColor=paint.value;
+      currentBuild=normalizeBuild({...currentBuild,paint:currentColor});
+      repaintVehicle();
+      reflectCustomBuild();
+      saveCustomBuild();
+      showToast(paint.name+' paint applied');
+    });
+    $('paints').append(chip);
+  }
+}
+fillKitSelect('bodyKitSelect',BODY_KITS);
+fillKitSelect('wheelKitSelect',WHEEL_KITS);
+fillKitSelect('wingKitSelect',WING_KITS);
+for(const id of ['bodyKitSelect','wheelKitSelect','wingKitSelect'])
+  $(id).addEventListener('change',applyBuildKit);
+function showTab(name){
+  activeTab=name;
+  for(const control of Object.keys(controls)) controls[control]=false;
+  document.querySelectorAll('[data-pane]').forEach(el=>el.classList.toggle('hidden',el.dataset.pane!==name));
+  document.querySelectorAll('[data-tab]').forEach(el=>el.classList.toggle('active',el.dataset.tab===name));
+  if(name==='challenges')renderChallenges();
+}
+function renderChallenges(){
+  $('challengeList').innerHTML='';
+  const value=Math.max(bestScore,Math.floor(state.score));
+  for(const challenge of CHALLENGES){
+    const percent=Math.min(100,100*value/challenge.target);
+    const item=document.createElement('div');
+    item.className='challenge'+(percent===100?' done':'');
+    item.innerHTML='<h3>'+challenge.title+'</h3><p>'+challenge.description+'</p><div class="progress"><b style="width:'+percent+'%"></b></div><div class="value">'+Math.min(value,challenge.target).toLocaleString()+' / '+challenge.target.toLocaleString()+' POINTS'+(percent===100?' · COMPLETED':'')+'</div>';
+    $('challengeList').append(item);
+  }
+}
+function setDriveMode(mode,{announce=true}={}){
+  driveMode=mode==='grip'?'grip':'drift';
+  $('driftMode').classList.toggle('selected',driveMode==='drift');
+  $('gripMode').classList.toggle('selected',driveMode==='grip');
+  $('modeName').textContent=driveMode==='grip'?'GRIP':'DRIFT';
+  $('sideMode').textContent=driveMode==='grip'?'HIGH GRIP / RACE':'DRIFT / TANDEM';
+  lapState=newLapState();
+  if(announce)showToast(driveMode==='grip'?'HIGH GRIP MODE / CIRCUIT SETUP':'DRIFT MODE / TANDEM SETUP');
+}
+function syncAIDriver(){
+  if(aiCarVisual){disposeVehicle(aiCarVisual);aiCarVisual=null;}
+  tandemPoints=0;
+  aiDriver=aiRole==='off'?null:createAIDriver(activeTrack,aiRole.toUpperCase(),'ember');
+  if(aiDriver){
+    aiCarVisual=buildCar(findCar('ember'),0xd45f4e,{
+      bodyKit:'wide',wheels:'mesh',wing:'gt'
+    });
+    aiCarVisual.visible=false;scene.add(aiCarVisual);
+  }
+  const enabled=aiRole!=='off';
+  $('aiHint').textContent=enabled
+    ? (activeTrack.kind==='drift'?'AI '+aiRole.toUpperCase()+' / dynamic track-following pilot':'Tandem AI is only available on the three drift courses')
+    : 'Choose an AI partner for tandem practice on any drift circuit.';
+}
+$('aiRoleSelect').addEventListener('change',event=>{
+  aiRole=event.target.value;
+  event.target.blur(); // Return keyboard control to the driving session.
+  syncAIDriver();
+  showToast(aiRole==='off'?'SOLO PRACTICE':'AI '+aiRole.toUpperCase()+' PARTNER READY');
+});
+function advanceAIDriver(dt){
+  const enabled=Boolean(aiDriver&&aiCarVisual&&gameActive&&
+    activeTab==='drive'&&!departmentOpen&&driveMode==='drift'&&activeTrack.kind==='drift');
+  if(aiCarVisual)aiCarVisual.visible=enabled;
+  if(!enabled)return;
+  aiDriver=stepAIDriver(aiDriver,state,activeTrack,findCar(aiDriver.carId),dt);
+  aiCarVisual.position.set(aiDriver.state.x,.10,aiDriver.state.z);
+  aiCarVisual.rotation.y=aiDriver.state.heading;
+  const distance=Math.hypot(aiDriver.state.x-state.x,aiDriver.state.z-state.z);
+  const headingDiff=Math.atan2(
+    Math.sin(aiDriver.state.heading-state.heading),
+    Math.cos(aiDriver.state.heading-state.heading));
+  const close=distance<23&&distance>3&&Math.abs(headingDiff)<.65;
+  if(close&&state.speedKmh>30&&state.slipAngle>=9&&aiDriver.state.speedKmh>20){
+    tandemPoints+=dt*(25-distance)*3;
+  }
+}
+
+function setActiveTrack(id,{announce=true,reset=true}={}){
+  activeTrack=findTrack(id);
+  $('quickTrack').value=activeTrack.id;
+  $('trackName').textContent=activeTrack.short;
+  $('sideTrack').textContent=activeTrack.short;
+  activeZone=activeTrack.name;
+  $('location').textContent=activeZone;
+  if(reset){
+    const spawn=getTrackSpawn(activeTrack);
+    state=resetAt(spawn.x,spawn.z,spawn.heading);
+    lapState=newLapState();nearPasses=0;collisions=0;raceScore=0;
+    circuitTraffic=createCircuitTraffic(11);
+    syncAIDriver();
+  }
+  if(announce)showToast(activeTrack.name+' / '+activeTrack.difficulty);
+}
+function teleportDepartment(dept){
+  state=resetAt(dept.x,dept.z+8,0);
+  $('location').textContent=dept.name+' / PARK HERE';
+  activeZone='SCHOOLYARD CAMPUS';
+  showTab('drive');
+  showToast('Park fully and press E to enter '+dept.short);
+}
+for(const track of TRACKS){
+  const option=document.createElement('option');option.value=track.id;
+  option.textContent=track.number+' / '+track.short;
+  $('quickTrack').append(option);
+  const btn=document.createElement('button');
+  btn.className='zone track-zone';
+  btn.style.setProperty('--track-color',track.theme);
+  const text=document.createElement('span');
+  const title=document.createElement('strong');title.textContent=track.name;
+  const type=document.createElement('small');type.className='zone-type';
+  type.textContent=(track.kind==='drift'?'DRIFT / WIDE CORNERS':'RACE / CIRCUIT')+' · '+track.difficulty;
+  const desc=document.createElement('small');desc.textContent=track.description;
+  text.append(title,type,desc);
+  const go=document.createElement('span');go.textContent='GO ›';
+  btn.append(text,go);
+  btn.addEventListener('click',()=>{
+    setDriveMode(track.kind==='race'?'grip':'drift',{announce:false});
+    setActiveTrack(track.id);showTab('drive');
+  });
+  $('zones').append(btn);
+}
+for(const dept of DEPARTMENTS){
+  const btn=document.createElement('button');btn.className='zone';
+  const content=document.createElement('span'),title=document.createElement('strong'),subtitle=document.createElement('small');
+  title.textContent=dept.name;subtitle.textContent=dept.category;
+  content.append(title,subtitle);
+  const go=document.createElement('span');go.textContent='PARK ›';
+  btn.append(content,go);
+  btn.addEventListener('click',()=>teleportDepartment(dept));
+  $('departmentList').append(btn);
+}
+$('quickTrack').addEventListener('change',e=>{
+  const track=findTrack(e.target.value);
+  e.target.blur();
+  setDriveMode(track.kind==='race'?'grip':'drift',{announce:false});
+  setActiveTrack(track.id);
+});
+$('driftMode').addEventListener('click',()=>setDriveMode('drift'));
+$('gripMode').addEventListener('click',()=>setDriveMode('grip'));
+$('worldButton').addEventListener('click',()=>showTab('world'));
+$('expandMap').addEventListener('click',()=>showTab('world'));
+$('departmentPrompt').addEventListener('click',openNearbyDepartment);
+$('closeDepartment').addEventListener('click',closeDepartment);
+function openNearbyDepartment(){
+  const dept=nearbyDepartment(state,14);
+  if(!dept||!canEnterDepartment(state,dept,14)){
+    showToast('Stop and park closer to a department entrance');
+    return;
+  }
+  currentDepartment=dept;departmentOpen=true;
+  $('departmentCategory').textContent=dept.category.toUpperCase();
+  $('departmentTitle').textContent=dept.name;
+  $('departmentLead').textContent=dept.lead;
+  $('departmentDetail').textContent=dept.detail;
+  $('departmentModal').hidden=false;
+  for(const key of Object.keys(controls))controls[key]=false;
+}
+function closeDepartment(){
+  departmentOpen=false;currentDepartment=null;
+  $('departmentModal').hidden=true;
+}
+
+for(const category of CATEGORIES){
+  const option=document.createElement('option');option.value=category;option.textContent=category;
+  $('category').append(option);
+}
+renderPaints();
+selectCategory(); // Populate all 15 garage vehicles before the first play session.
+$('category').addEventListener('change',selectCategory);
+$('carSelect').addEventListener('change',e=>setCar(e.target.value));
+$('gripTune').addEventListener('input',updateTuning);
+$('handlingTune').addEventListener('input',updateTuning);
+document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
+$('driveSelected').addEventListener('click',()=>{setActiveTrack(activeTrack.id,{announce:false});showTab('drive');showToast('Find your line on the closed course.');});
+$('resetButton').addEventListener('click',()=>{state=resetAt(state.x,state.z,state.heading);showToast('Vehicle reset');});
+$('cameraButton').addEventListener('click',()=>{cameraMode=(cameraMode+1)%3;showToast(['CHASE CAM','OVERHEAD CAM','LOW FOLLOW CAM'][cameraMode]);});
+$('clearScores').addEventListener('click',()=>{bestScore=0;state=resetAt(state.x,state.z,state.heading);try{localStorage.removeItem('rev-drift-best')}catch{}renderChallenges();showToast('Practice score history cleared');});
+function setKey(code,down){
+  const lookup={KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',KeyW:'throttle',ArrowUp:'throttle',KeyS:'brake',ArrowDown:'brake',Space:'handbrake'};
+  if(lookup[code]){controls[lookup[code]]=down;return true;}
+  return false;
+}
+window.addEventListener('keydown',e=>{
+  const typing=['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName);
+  if(typing)return;
+  if(setKey(e.code,true))e.preventDefault();
+  if(e.repeat)return;
+  if(e.code==='KeyR')setActiveTrack(activeTrack.id,{announce:false});
+  if(e.code==='KeyC')cameraMode=(cameraMode+1)%3;
+  if(e.code==='KeyM'&&gameActive)setDriveMode(driveMode==='drift'?'grip':'drift');
+  if(e.code==='KeyG'&&gameActive)showTab(activeTab==='world'?'drive':'world');
+  if(e.code==='KeyE'&&gameActive&&!departmentOpen)openNearbyDepartment();
+  if(e.code==='Escape'&&departmentOpen)closeDepartment();
+});
+window.addEventListener('keyup',e=>{if(setKey(e.code,false))e.preventDefault();});
+window.addEventListener('blur',()=>Object.keys(controls).forEach(k=>controls[k]=false));
+document.querySelectorAll('[data-control]').forEach(btn=>{
+  const control=btn.dataset.control;
+  btn.addEventListener('pointerdown',e=>{e.preventDefault();controls[control]=true;btn.classList.add('pressed');btn.setPointerCapture(e.pointerId);});
+  for(const eventName of ['pointerup','pointercancel','lostpointercapture']){
+    btn.addEventListener(eventName,()=>{controls[control]=false;btn.classList.remove('pressed');});
+  }
+});
+setCar('nova');$('carSelect').value='nova';
+$('category').value='All';
+setActiveTrack('north-pines',{announce:false});
+
+// First-party entry screen for a future Schoolhouse / Garage button.
+// The portfolio Schoolhouse does not call or receive financial services here.
+// A direct URL like ?mode=drift may be linked by a separate approved host.
+const portal=$('portal'),app=$('app'),portalStage=$('portalCarStage');
+const viewport=document.querySelector('.viewport');
+portalStage.append(canvas);
+portalStage.querySelector('.portal-stage-placeholder')?.remove();
+
+function launchMode(tab='drive') {
+  portal.hidden=true;
+  app.classList.remove('app-inactive');
+  if(canvas.parentElement!==viewport) viewport.insertBefore(canvas,viewport.firstChild);
+  gameActive=true;
+  for(const key of Object.keys(controls)) controls[key]=false;
+  showTab(tab);
+  history.replaceState(null,'',location.pathname+'#/'+tab);
+  resize();
+  showToast(tab==='drive'?'WELCOME TO REV DRIFT ACADEMY':'YOUR GARAGE IS READY');
+}
+function returnToGarage() {
+  gameActive=false;
+  for(const key of Object.keys(controls)) controls[key]=false;
+  state=resetAt();
+  closeDepartment();
+  portal.hidden=false;
+  app.classList.add('app-inactive');
+  portalStage.append(canvas);
+  history.replaceState(null,'',location.pathname+'#/home');
+  try{localStorage.setItem('rev-drift-best',String(bestScore));}catch{}
+  resize();
+}
+$('portalStart').addEventListener('click',()=>{setDriveMode('drift',{announce:false});setActiveTrack('north-pines',{announce:false});launchMode('drive');});
+$('portalGrip').addEventListener('click',()=>{setDriveMode('grip',{announce:false});setActiveTrack('outer-express',{announce:false});launchMode('drive');});
+$('portalGarage').addEventListener('click',()=>launchMode('garage'));
+$('portalWorld').addEventListener('click',()=>launchMode('world'));
+$('exitToPortal').addEventListener('click',returnToGarage);
+function openRequestedMode() {
+  const q=new URLSearchParams(location.search);
+  const hash=location.hash.replace(/^#\/?/,'').toLowerCase();
+  const selected=(q.get('mode')||hash).toLowerCase();
+  const known=['drift','drive','grip','race','garage','world','challenges'];
+  if(known.includes(selected)){
+    if(selected==='grip'||selected==='race'){setDriveMode('grip',{announce:false});setActiveTrack('outer-express',{announce:false});launchMode('drive');}
+    else{if(selected==='drift'||selected==='drive')setActiveTrack('north-pines',{announce:false});launchMode(selected==='drift'?'drive':selected);}
+  }
+}
+
+function createSmokePool(){
+  const material=new THREE.MeshBasicMaterial({color:0xd2d0c5,transparent:true,opacity:.22,depthWrite:false});
+  const pool=[];
+  for(let i=0;i<35;i++){
+    const cloud=new THREE.Mesh(new THREE.SphereGeometry(.55,7,5),material.clone());
+    cloud.visible=false;scene.add(cloud);pool.push({cloud,life:0,velocity:0});
+  }
+  return pool;
+}
+const smokePool=createSmokePool();
+function spawnSmoke(){
+  const next=smokePool.find(p=>p.life<=0);if(!next)return;
+  const side=Math.random()>.5?1:-1;
+  next.cloud.position.set(state.x+Math.cos(state.heading)*side*.85,.3,state.z-Math.sin(state.heading)*side*.85+1.4);
+  next.cloud.scale.setScalar(.6);next.life=1.7;next.velocity=.6+Math.random()*.4;
+  next.cloud.material.opacity=.22;next.cloud.visible=true;
+}
+function animateSmoke(dt){
+  for(const p of smokePool){
+    if(p.life<=0)continue;
+    p.life-=dt;p.cloud.position.y+=dt*p.velocity;
+    p.cloud.scale.multiplyScalar(1+dt*.95);
+    p.cloud.material.opacity=Math.max(0,Math.min(.22,p.life*.14));
+    if(p.life<=0)p.cloud.visible=false;
+  }
+}
+function setCamera(dt){
+  const yaw=state.heading;
+  const target=new THREE.Vector3(state.x,1.5,state.z);
+  let desired;
+  if(cameraMode===1){desired=new THREE.Vector3(state.x,43,state.z+12);target.y=0;}
+  else if(cameraMode===2){desired=new THREE.Vector3(state.x+Math.sin(yaw)*8,3.8,state.z+Math.cos(yaw)*8);}
+  else{desired=new THREE.Vector3(state.x+Math.sin(yaw)*15,8.5,state.z+Math.cos(yaw)*15);}
+  camera.position.lerp(desired,Math.min(1,dt*5.5));
+  camera.lookAt(target);
+}
+function hud(){
+  $('speed').textContent=Math.floor(state.speedKmh).toString().padStart(3,'0');
+  $('score').textContent=Math.floor(state.score).toString().padStart(6,'0');
+  $('angle').textContent=Math.floor(state.slipAngle);
+  $('combo').textContent=state.drifting?'DRIFTING  ×'+state.combo+' COMBO':'FIND YOUR LINE';
+}
+function saveBest(now){
+  if(state.score>bestScore){bestScore=Math.floor(state.score);}
+  if(now-lastSaved>3500){lastSaved=now;try{localStorage.setItem('rev-drift-best',String(bestScore))}catch{}}
+}
+// Simplified procedural AI cars on the closed Outer Express circuit.
+function trafficCarMesh(color){
+  const g=new THREE.Group();
+  const metal=new THREE.MeshStandardMaterial({color,roughness:.39,metalness:.46});
+  const windowMat=new THREE.MeshStandardMaterial({color:0x1c3037,roughness:.21,metalness:.18});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(2,.65,4.3),metal);
+  body.position.y=.72;g.add(body);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(1.6,.40,2.2),windowMat);
+  roof.position.set(0,1.22,.15);g.add(roof);
+  for(const x of [-1,1])for(const z of [-1.45,1.45]){
+    const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.39,.39,.23,8),new THREE.MeshStandardMaterial({color:0x11171a}));
+    wheel.rotation.z=Math.PI/2;wheel.position.set(x,.4,z);g.add(wheel);
+  }
+  g.visible=false;scene.add(g);return g;
+}
+circuitVehicles=circuitTraffic.map(c=>trafficCarMesh(c.color));
+const expressTrack=findTrack('outer-express');
+const expressPoints=sampleTrack(expressTrack,180);
+let expressLength=0;
+for(let i=0;i<expressPoints.length;i++){
+ const a=expressPoints[i],b=expressPoints[(i+1)%expressPoints.length];
+ expressLength+=Math.hypot(a.x-b.x,a.z-b.z);
+}
+function renderTraffic(dt){
+  const enabled=gameActive&&activeTab==='drive'&&!departmentOpen&&
+    activeTrack.id==='outer-express'&&driveMode==='grip';
+  for(const mesh of circuitVehicles)mesh.visible=enabled;
+  if(!enabled)return;
+  circuitTraffic=advanceCircuitTraffic(circuitTraffic,dt,expressTrack,expressLength);
+  const events=evaluateCircuitTraffic(circuitTraffic,state,expressTrack);
+  circuitTraffic=events.traffic;
+  nearPasses+=events.nearPasses;collisions+=events.collisions;
+  raceScore+=events.points;
+  if(events.collisions){
+    state.forward*=.36;state.lateral*=.4;
+    raceScore=Math.max(0,raceScore-120*events.collisions);
+    showToast('CONTACT / PENALTY');
+  } else if(events.nearPasses){
+    showToast('CLEAN PASS / +'+events.points);
+  }
+  circuitVehicles.forEach((mesh,i)=>{
+    const p=trafficPose(expressTrack,circuitTraffic[i]);
+    mesh.position.set(p.x,.04,p.z);mesh.rotation.y=p.heading;
+  });
+}
+function updateDepartmentPrompt(){
+  const nearby=nearbyDepartment(state,14);
+  const canEnter=gameActive&&activeTab==='drive'&&!departmentOpen&&
+    canEnterDepartment(state,nearby,14);
+  $('departmentPrompt').hidden=!canEnter;
+  if(canEnter)$('departmentPrompt').textContent='PARKED / ENTER '+nearby.short+' [E]';
+}
+function renderMaps(now){
+  if(now-lastMapDraw<90)return;
+  lastMapDraw=now;
+  drawSchoolMap($('minimap'),state,activeTrack.id,{local:true});
+  drawSchoolMap($('worldMap'),state,activeTrack.id);
+}
+function frame(now=0){
+  requestAnimationFrame(frame);
+  const dt=Math.min(clock.getDelta(),.05);
+  if(gameActive){
+    if(activeTab==='drive'&&!departmentOpen){
+      const command={
+        steer:Number(controls.right)-Number(controls.left),
+        throttle:Number(controls.throttle),
+        brake:Number(controls.brake),
+        handbrake:controls.handbrake
+      };
+      const pre=onTrack(activeTrack,state.x,state.z,trackSamples.get(activeTrack.id));
+      const allowDriftScore=driveMode==='drift'&&activeTrack.kind==='drift'&&pre.inside;
+      state=stepCar(state,command,tunedCar,dt,driveMode,allowDriftScore);
+      if(Math.abs(state.x)>525||Math.abs(state.z)>790){
+        setActiveTrack(activeTrack.id,{announce:false});
+        showToast('TRACK BOUNDARY / RETURNED TO START');
+      }
+      if(activeTrack.kind==='race'&&driveMode==='grip'){
+        const position=onTrack(activeTrack,state.x,state.z,trackSamples.get(activeTrack.id));
+        const next=updateLapState(lapState,position.progress,position.inside,dt);
+        lapState=next.state;
+        if(next.completed){raceScore+=250;showToast('VALID LAP / +250');}
+      }
+      if(state.drifting&&now-lastSmoke>80){lastSmoke=now;spawnSmoke();}
+    }
+    vehicle.position.set(state.x,.10,state.z);
+    vehicle.rotation.y=state.heading;
+    advanceAIDriver(activeTab==='drive'&&!departmentOpen?dt:0);
+    renderTraffic(dt);
+    animateSmoke(dt);
+    setCamera(dt);
+    hud();
+    $('score').textContent=Math.floor(driveMode==='grip'?raceScore:state.score).toString().padStart(6,'0');
+    $('lapInfo').textContent=lapState.lap+' / '+nearPasses;
+    $('tandemPoints').textContent=Math.floor(tandemPoints).toString().padStart(4,'0');
+    if(driveMode==='grip'){
+      $('combo').textContent=activeTrack.id==='outer-express'
+        ? 'PASSES '+nearPasses+' · CONTACT '+collisions
+        : 'LAPS '+lapState.lap+(lapState.bestSeconds?' · BEST '+lapState.bestSeconds.toFixed(1)+'S':'');
+    }
+    updateDepartmentPrompt();
+    renderMaps(now);
+    saveBest(now);
+  }else{
+    portalOrbit+=dt*.2;
+    vehicle.position.set(0,.1,0);
+    vehicle.rotation.y=portalOrbit;
+    camera.position.lerp(new THREE.Vector3(8.6+Math.sin(portalOrbit*.32)*2,4.9,10.8),Math.min(1,dt*3.2));
+    camera.lookAt(new THREE.Vector3(0,1.05,0));
+    for(const mesh of circuitVehicles)mesh.visible=false;
+    if(aiCarVisual)aiCarVisual.visible=false;
+    animateSmoke(dt);
+  }
+  renderer.render(scene,camera);
+}
+const observer=new ResizeObserver(resize);
+observer.observe(viewport);
+observer.observe(portalStage);
+resize();
+camera.position.set(8,5,11);
+openRequestedMode();
+requestAnimationFrame(frame);
