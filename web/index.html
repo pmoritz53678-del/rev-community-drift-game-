@@ -4,33 +4,34 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#0b1115"/>
-  <meta name="description" content="REV Community Drift Academy — original 3D drifting prototype with a 15-car fictional roster."/>
-  <title>REV Community — Drift Academy</title>
+  <meta name="description" content="REV Schoolyard Motorsports — five closed-course tracks and an explorable campus."/>
+  <title>REV Community — Schoolyard Motorsports</title>
 </head>
 <body>
 
   <section id="portal" class="portal" aria-label="REV Community Drift Academy start screen">
     <div class="portal-texture" aria-hidden="true"></div>
     <header class="portal-top">
-      <div class="logo portal-logo"><span class="rev">REV<span class="slash">/</span></span><span class="brand-caption">COMMUNITY<br/><strong>DRIFT ACADEMY</strong></span></div>
+      <div class="logo portal-logo"><span class="rev">REV<span class="slash">/</span></span><span class="brand-caption">COMMUNITY<br/><strong>SCHOOLYARD MOTORSPORTS</strong></span></div>
       <div class="portal-origin">YOU VS AI <span class="portal-divider">/</span> GARAGE EXPANSION</div>
       <div class="portal-version"><span class="pulse"></span> EARLY ACCESS · PLAYABLE PREVIEW</div>
     </header>
     <div class="portal-main">
       <div class="portal-intro">
-        <div class="portal-chapter">PARKER'S GARAGE <span>CHAPTER 01 / DRIFT</span></div>
+        <div class="portal-chapter">PARKER'S GARAGE <span>FIVE TRACKS / TWO DRIVING MODES</span></div>
         <div class="portal-line"></div>
         <h1>BUILT FOR<br/>THE <em>DRIVE.</em></h1>
         <p class="portal-lead">Pick your car. Find your line. Build something worth driving.</p>
-        <p class="portal-copy">Step out of the Schoolhouse and into REV Community's driving academy. Practice drifting on a closed course, discover original cars, and make the garage your own.</p>
+        <p class="portal-copy">Three big tandem drift courses, two racing circuits, and a whole campus of departments to discover. Drive your own way.</p>
         <div class="portal-actions">
           <button class="portal-button primary" id="portalStart"><span>ENTER DRIFT MODE</span><span class="portal-button-icon">↗</span></button>
+          <button class="portal-button ghost" id="portalGrip"><span>ENTER GRIP / RACE MODE</span><span>↗</span></button>
           <button class="portal-button ghost" id="portalGarage"><span>EXPLORE THE GARAGE</span><span>›</span></button>
         </div>
         <div class="portal-feature-grid">
-          <div><span>01</span><strong>PRACTICE</strong><small>Learn to hold a drift</small></div>
-          <div><span>02</span><strong>CUSTOMIZE</strong><small>Cars, paint and tuning</small></div>
-          <div><span>03</span><strong>EXPLORE</strong><small>Community world preview</small></div>
+          <div><span>01</span><strong>DRIFT</strong><small>Three tandem circuits</small></div>
+          <div><span>02</span><strong>RACE</strong><small>Two closed-road tracks</small></div>
+          <div><span>03</span><strong>SCHOOLYARD</strong><small>Drive up to departments</small></div>
         </div>
       </div>
       <div class="portal-showcase">
@@ -76,10 +77,25 @@
           <div class="speed-label">VEHICLE SPEED</div>
         </div>
         <div class="hud-right">
+          <div class="hud-top">MODE <strong id="modeName">DRIFT</strong></div>
+          <div class="hud-top">TRACK <strong id="trackName">NORTH PINES</strong></div>
           <div class="hud-top">DRIFT SCORE <strong id="score">000000</strong></div>
           <div class="hud-top">ANGLE <strong><span id="angle">0</span>°</strong></div>
           <div class="combo" id="combo">NO ACTIVE DRIFT</div>
+          <div class="hud-top">LAP / PASSES <strong id="lapInfo">0 / 0</strong></div>
         </div>
+        <div class="driving-toolbar" id="drivingToolbar">
+          <button id="driftMode" class="mode-btn selected">DRIFT</button>
+          <button id="gripMode" class="mode-btn">GRIP / RACE</button>
+          <button id="worldButton" class="mode-btn">WORLD MAP</button>
+          <label class="sr-only" for="quickTrack">Track selection</label>
+          <select id="quickTrack" aria-label="Jump to a track"></select>
+        </div>
+        <div class="minimap-wrap" aria-label="Live minimap">
+          <div class="minimap-caption"><span>LIVE CAMPUS MAP</span><button id="expandMap" aria-label="Open full world map">⛶</button></div>
+          <canvas id="minimap" width="260" height="190" aria-label="Live player position on the Schoolyard track map"></canvas>
+        </div>
+        <button class="department-prompt" id="departmentPrompt" hidden>Park and tap to enter the department [E]</button>
         <div class="hud-bottom"><span id="carName">KISORA NOVA S</span><span id="driveType">RWD</span><span>REV COMMUNITY / DRIFT ACADEMY</span></div>
         <div class="toast" id="toast" role="status" aria-live="polite">Welcome to REV Drift Academy</div>
         <div class="touch-controls" aria-label="Mobile driving controls">
@@ -98,11 +114,12 @@
         <section class="side-pane" data-pane="drive">
           <div class="panel-kicker">01 / TEST DRIVE</div>
           <h1>MAKE THE CORNER<br/><em>YOUR OWN.</em></h1>
-          <p class="description">Start with a simple car, learn your line, then hold the slide. No timers, no purchases, no distractions.</p>
+          <p class="description">Drive five circuits around one Schoolyard campus. Change between Drift and Grip handling, then park outside a department to explore.</p>
           <div class="info-strip"><span>CAR</span><strong id="driveCar">KISORA NOVA S</strong></div>
           <div class="info-strip"><span>DRIVE</span><strong id="driveDrive">REAR WHEEL</strong></div>
-          <div class="info-strip"><span>MODE</span><strong>FREE PRACTICE</strong></div>
-          <div class="control-help"><strong>KEYBOARD</strong><div><kbd>W</kbd> Accelerate &nbsp; <kbd>A</kbd><kbd>D</kbd> Steer<br/><kbd>S</kbd> Brake &nbsp; <kbd>SPACE</kbd> Handbrake<br/><kbd>C</kbd> Camera &nbsp; <kbd>R</kbd> Reset</div></div>
+          <div class="info-strip"><span>MODE</span><strong id="sideMode">DRIFT</strong></div>
+          <div class="info-strip"><span>TRACK</span><strong id="sideTrack">NORTH PINES</strong></div>
+          <div class="control-help"><strong>KEYBOARD</strong><div><kbd>W</kbd> Accelerate &nbsp; <kbd>A</kbd><kbd>D</kbd> Steer<br/><kbd>S</kbd> Brake &nbsp; <kbd>SPACE</kbd> Handbrake<br/><kbd>C</kbd> Camera &nbsp; <kbd>R</kbd> Reset<br/><kbd>M</kbd> Mode &nbsp; <kbd>E</kbd> Enter &nbsp; <kbd>G</kbd> Map</div></div>
           <div class="button-stack"><button class="action primary" id="resetButton">RESET VEHICLE</button><button class="action" id="cameraButton">SWITCH CAMERA</button></div>
           <div class="hint">A working arcade prototype. Realistic Chaos Vehicle physics will be developed in the Unreal project.</div>
         </section>
@@ -136,15 +153,24 @@
         </section>
         <section class="side-pane hidden" data-pane="world">
           <div class="panel-kicker">04 / OPEN WORLD</div>
-          <h1>YOUR CITY.<br/><em>YOUR COMMUNITY.</em></h1>
-          <p class="description">These are the first environments for an original automotive campus. Select a location to start there.</p>
-          <div class="zone-list" id="zones"></div>
+          <h1>FIVE TRACKS.<br/><em>ONE SCHOOLYARD.</em></h1>
+          <p class="description">Choose from three wide-corner tandem drift tracks or two race circuits. Follow the map to the Schoolhouse departments.</p>
+          <div class="world-map-full"><canvas id="worldMap" width="550" height="380" aria-label="Five circuits, campus and player location"></canvas></div><div class="world-section">CLOSED-COURSE TRACKS</div><div class="zone-list" id="zones"></div><div class="world-section">SCHOOLHOUSE DEPARTMENTS</div><div id="departmentList" class="zone-list"></div>
           <div class="world-note"><strong>SCHOOLHOUSE CONNECTION</strong><br/>The social car meet remains a non-racing event. Driving and scoring happen here in the dedicated academy.</div>
-          <div class="hint">The full walkable campus, populated interiors, and mission system are planned for Unreal Engine.</div>
+          <div class="hint">The map displays local game coordinates, not GPS. Indoor scenes and multiplayer require future Unreal Engine work.</div>
         </section>
         <footer class="side-footer">DRIVEN BY CARS. CONNECTED BY COMMUNITY.<br/><small>REV COMMUNITY · EARLY PLAYABLE BUILD</small></footer>
       </aside>
     </main>
+    <div class="department-modal" id="departmentModal" hidden>
+      <div class="department-panel" role="dialog" aria-modal="true" aria-labelledby="departmentTitle">
+        <div class="panel-kicker" id="departmentCategory">SCHOOLHOUSE DEPARTMENT</div>
+        <h2 id="departmentTitle">DEPARTMENT</h2>
+        <p id="departmentLead"></p>
+        <p class="department-detail" id="departmentDetail"></p>
+        <button class="action primary" id="closeDepartment">RETURN TO SCHOOLYARD</button>
+      </div>
+    </div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>
