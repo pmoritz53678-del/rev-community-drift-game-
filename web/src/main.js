@@ -386,6 +386,7 @@ for(const category of CATEGORIES){
   $('category').append(option);
 }
 renderPaints();
+selectCategory(); // Populate all 15 garage vehicles before the first play session.
 $('category').addEventListener('change',selectCategory);
 $('carSelect').addEventListener('change',e=>setCar(e.target.value));
 $('gripTune').addEventListener('input',updateTuning);
