@@ -118,10 +118,7 @@ function disposeVehicle(group){
   scene.remove(group);
   group.traverse(child=>{
     if(child.isMesh && child.geometry)child.geometry.dispose();
-    if(child.isMesh && child.material){
-      const materials=Array.isArray(child.material)?child.material:[child.material];
-      for(const m of materials)m.dispose();
-    }
+    // Materials may be reused by multiple preview cars; keep shared materials alive.
   });
 }
 function repaintVehicle(){
@@ -262,6 +259,44 @@ function setDriveMode(mode,{announce=true}={}){
   lapState=newLapState();
   if(announce)showToast(driveMode==='grip'?'HIGH GRIP MODE / CIRCUIT SETUP':'DRIFT MODE / TANDEM SETUP');
 }
+function syncAIDriver(){
+  if(aiCarVisual){disposeVehicle(aiCarVisual);aiCarVisual=null;}
+  tandemPoints=0;
+  aiDriver=aiRole==='off'?null:createAIDriver(activeTrack,aiRole.toUpperCase(),'ember');
+  if(aiDriver){
+    aiCarVisual=buildCar(findCar('ember'),0xd45f4e,{
+      bodyKit:'wide',wheels:'mesh',wing:'gt'
+    });
+    aiCarVisual.visible=false;scene.add(aiCarVisual);
+  }
+  const enabled=aiRole!=='off';
+  $('aiHint').textContent=enabled
+    ? (activeTrack.kind==='drift'?'AI '+aiRole.toUpperCase()+' / dynamic track-following pilot':'Tandem AI is only available on the three drift courses')
+    : 'Choose an AI partner for tandem practice on any drift circuit.';
+}
+$('aiRoleSelect').addEventListener('change',event=>{
+  aiRole=event.target.value;
+  syncAIDriver();
+  showToast(aiRole==='off'?'SOLO PRACTICE':'AI '+aiRole.toUpperCase()+' PARTNER READY');
+});
+function advanceAIDriver(dt){
+  const enabled=Boolean(aiDriver&&aiCarVisual&&gameActive&&
+    activeTab==='drive'&&!departmentOpen&&driveMode==='drift'&&activeTrack.kind==='drift');
+  if(aiCarVisual)aiCarVisual.visible=enabled;
+  if(!enabled)return;
+  aiDriver=stepAIDriver(aiDriver,state,activeTrack,findCar(aiDriver.carId),dt);
+  aiCarVisual.position.set(aiDriver.state.x,.10,aiDriver.state.z);
+  aiCarVisual.rotation.y=aiDriver.state.heading;
+  const distance=Math.hypot(aiDriver.state.x-state.x,aiDriver.state.z-state.z);
+  const headingDiff=Math.atan2(
+    Math.sin(aiDriver.state.heading-state.heading),
+    Math.cos(aiDriver.state.heading-state.heading));
+  const close=distance<23&&distance>3&&Math.abs(headingDiff)<.65;
+  if(close&&state.speedKmh>30&&state.slipAngle>=9&&aiDriver.state.speedKmh>20){
+    tandemPoints+=dt*(25-distance)*3;
+  }
+}
+
 function setActiveTrack(id,{announce=true,reset=true}={}){
   activeTrack=findTrack(id);
   $('quickTrack').value=activeTrack.id;
@@ -274,6 +309,7 @@ function setActiveTrack(id,{announce=true,reset=true}={}){
     state=resetAt(spawn.x,spawn.z,spawn.heading);
     lapState=newLapState();nearPasses=0;collisions=0;raceScore=0;
     circuitTraffic=createCircuitTraffic(11);
+    syncAIDriver();
   }
   if(announce)showToast(activeTrack.name+' / '+activeTrack.difficulty);
 }
@@ -568,12 +604,14 @@ function frame(now=0){
     }
     vehicle.position.set(state.x,.10,state.z);
     vehicle.rotation.y=state.heading;
+    advanceAIDriver(activeTab==='drive'&&!departmentOpen?dt:0);
     renderTraffic(dt);
     animateSmoke(dt);
     setCamera(dt);
     hud();
     $('score').textContent=Math.floor(driveMode==='grip'?raceScore:state.score).toString().padStart(6,'0');
     $('lapInfo').textContent=lapState.lap+' / '+nearPasses;
+    $('tandemPoints').textContent=Math.floor(tandemPoints).toString().padStart(4,'0');
     if(driveMode==='grip'){
       $('combo').textContent=activeTrack.id==='outer-express'
         ? 'PASSES '+nearPasses+' · CONTACT '+collisions
@@ -589,6 +627,7 @@ function frame(now=0){
     camera.position.lerp(new THREE.Vector3(8.6+Math.sin(portalOrbit*.32)*2,4.9,10.8),Math.min(1,dt*3.2));
     camera.lookAt(new THREE.Vector3(0,1.05,0));
     for(const mesh of circuitVehicles)mesh.visible=false;
+    if(aiCarVisual)aiCarVisual.visible=false;
     animateSmoke(dt);
   }
   renderer.render(scene,camera);
