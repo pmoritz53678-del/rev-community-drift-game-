@@ -83,6 +83,7 @@
           <div class="hud-top">ANGLE <strong><span id="angle">0</span>°</strong></div>
           <div class="combo" id="combo">NO ACTIVE DRIFT</div>
           <div class="hud-top">LAP / PASSES <strong id="lapInfo">0 / 0</strong></div>
+          <div class="hud-top">TANDEM BONUS <strong id="tandemPoints">0000</strong></div>
         </div>
         <div class="driving-toolbar" id="drivingToolbar">
           <button id="driftMode" class="mode-btn selected">DRIFT</button>
@@ -119,6 +120,9 @@
           <div class="info-strip"><span>DRIVE</span><strong id="driveDrive">REAR WHEEL</strong></div>
           <div class="info-strip"><span>MODE</span><strong id="sideMode">DRIFT</strong></div>
           <div class="info-strip"><span>TRACK</span><strong id="sideTrack">NORTH PINES</strong></div>
+          <label class="field-label" for="aiRoleSelect">AI TANDEM PRACTICE</label>
+          <select id="aiRoleSelect"><option value="off">OFF - SOLO</option><option value="lead">LEAD - FOLLOW THIS DRIVER</option><option value="chase">CHASE - AI FOLLOWS YOU</option></select>
+          <div class="hint" id="aiHint">Choose a partner for tandem practice on any drift circuit.</div>
           <div class="control-help"><strong>KEYBOARD</strong><div><kbd>W</kbd> Accelerate &nbsp; <kbd>A</kbd><kbd>D</kbd> Steer<br/><kbd>S</kbd> Brake &nbsp; <kbd>SPACE</kbd> Handbrake<br/><kbd>C</kbd> Camera &nbsp; <kbd>R</kbd> Reset<br/><kbd>M</kbd> Mode &nbsp; <kbd>E</kbd> Enter &nbsp; <kbd>G</kbd> Map</div></div>
           <div class="button-stack"><button class="action primary" id="resetButton">RESET VEHICLE</button><button class="action" id="cameraButton">SWITCH CAMERA</button></div>
           <div class="hint">A working arcade prototype. Realistic Chaos Vehicle physics will be developed in the Unreal project.</div>
@@ -133,6 +137,14 @@
           <select id="carSelect" aria-label="Car model"></select>
           <div class="spec-row"><div><span id="makeDisplay">KISORA</span><strong id="modelDisplay">NOVA S</strong></div><span class="tag" id="carClass">JDM</span></div>
           <p class="vehicle-story" id="carStory"></p>
+          <div class="world-section">JDM CUSTOMIZATION / BODY WORK</div>
+          <label class="field-label" for="bodyKitSelect">BODY KIT</label>
+          <select id="bodyKitSelect" aria-label="Choose a body kit"></select>
+          <label class="field-label" for="wheelKitSelect">WHEELS</label>
+          <select id="wheelKitSelect" aria-label="Choose rims"></select>
+          <label class="field-label" for="wingKitSelect">SPOILER</label>
+          <select id="wingKitSelect" aria-label="Choose spoiler"></select>
+          <p id="buildDescription" class="vehicle-story">Your personal style. Original tuner components.</p>
           <div class="stats"><div><span>POWER</span><strong id="power">285 HP</strong></div><div><span>WEIGHT</span><strong id="weight">1220 KG</strong></div><div><span>DRIVE</span><strong id="drivetrain">RWD</strong></div></div>
           <label class="field-label" for="gripTune">TIRE GRIP <output id="gripValue">69</output></label>
           <input type="range" id="gripTune" min="35" max="100" value="69"/>
