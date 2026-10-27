@@ -5,3 +5,5 @@ kenney-nature-kit,Kenney,https://kenney.nl/assets/nature-kit,verify exact versio
 quaternius-campus,Quaternius,https://quaternius.com,verify exact pack,unselected,false,false,false,do not import unreviewed files
 pmndrs-racing-code,pmndrs,https://github.com/pmndrs/racing-game,MIT,main,false,false,false,pattern reference only - no code copied
 epic-vehicle-template,Epic Games,https://dev.epicgames.com/documentation/unreal-engine/vehicle-template-in-unreal-engine,Unreal EULA,5.8,false,false,false,use only via licensed Unreal editor
+ice-maan-jdm-custom-coupe,IceMaan,https://icemaan.itch.io/free-low-poly-car2-3-body-kits-4-rims,CC0,downloadable-FBX,false,false,false,3 body kits 4 wheels 1 spoiler; files not yet downloaded; actual player kits presently original procedural geometry
+cosmo-free-low-poly-vehicles,Cosmo,https://cosmo-art.itch.io/low-poly-cars,CC0,free-tier,false,false,false,12 CC0 cars; premium 11 cars have separate restrictive redistribution terms; no files imported
