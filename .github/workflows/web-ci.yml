@@ -28,6 +28,19 @@ jobs:
         run: npm test
       - name: Build prototype
         run: npm run build
+      - name: Install headless Chromium for gameplay smoke test
+        run: npx playwright install --with-deps chromium
+      - name: Test game UI, driving and garage in a browser
+        run: npm run test:e2e
+      - name: Save browser screenshots and error traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rev-schoolyard-e2e
+          path: |
+            web/test-results/
+            web/playwright-report/
+          if-no-files-found: ignore
       - name: Save built files
         uses: actions/upload-artifact@v4
         with:
