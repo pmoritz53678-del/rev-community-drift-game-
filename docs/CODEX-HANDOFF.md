@@ -1,35 +1,25 @@
-# Codex handoff — take over Unreal build validation
+# Codex handoff — current five-track Schoolyard build
 
-## Objective
-Build and play the independent REV Drift Academy starter project. The code is intentionally a first-pass arcade prototype and **has not been compiled here** (Unreal Editor is unavailable in the assistant environment). Keep it separate from the investment Schoolhouse.
+The full actionable implementation brief is now **[CODEX-SCHOOLYARD-TASK.md](CODEX-SCHOOLYARD-TASK.md)**. Read that first.
 
-## Open in Codex
 Repository: https://github.com/pmoritz53678-del/rev-community-drift-game-
-Feature branch: `feature/ue5-drift-academy-v0`
-Engine: target Unreal Engine 5.8, use the version installed locally and record any migration.
+Branch: `feature/ue5-drift-academy-v0`
 
-## First tasks, in this order
-1. Pull this branch; review `AGENTS.md` and `docs/REPO-RULES.md`.
-2. Run `python3 -m unittest discover -s tests -v` and `node --check play/game.js`.
-3. On a Windows development PC with UE5 installed, open `REVDrift.uproject`; regenerate IDE project files and compile using UnrealBuildTool/Visual Studio. Report exact API errors and fix in small PRs.
-4. Play in Unreal Editor. Confirm pawn, ground, obstacles, steering, throttle, brake, handbrake, score, camera and reset.
-5. Generate source OBJ models using `python3 tools/generate_cars.py`; import one original design into Unreal as visual static mesh only and attach to a Blueprint child of the pawn.
-6. After native validation, develop a second Chaos Vehicles prototype using rigged skeletal mesh; do not falsely call a procedural OBJ a ready-to-drive Chaos vehicle.
-7. Implement mobile input mapping, tuning data assets, and iOS packaging *after* the physics milestone.
-8. Document screenshots, measured FPS, exact build command and any blockers in `reports/BUILD-REPORT.md`.
+Current reality:
+- `web/` contains source for a 3D Schoolyard with three drift and two race tracks, two switchable control models, garage, 15 fictional cars, scripted closed-course traffic, local minimap, and eight park-to-enter departments.
+- `REVDrift.uproject` is a native source scaffold with spline import library. The project is **not** a fully built and validated UE5.8 game; there is no committed finished 3D Unreal map.
+- No browser npm install, build or device gameplay smoke test was possible in this session. Source-level checks are documented in `reports/BUILD-REPORT.md`.
 
-## Copy-paste Codex assignment
+**Top priority:** run tests and real browser rendering, fix issues, then compile UE, export 5 splines, create a new native Schoolyard map and connect Chaos Vehicle systems. Do not touch the investment Schoolhouse repo.
+
+Copy-paste brief:
+
 ```text
-Repository: pmoritz53678-del/rev-community-drift-game-
-Branch: feature/ue5-drift-academy-v0
-Read AGENTS.md, docs/UNREAL-SETUP.md, docs/REPO-RULES.md and docs/ASSET-IP-LICENSING.md.
-Task: Validate and fix the native UE5.8 C++ prototype without editing the Schoolhouse repo.
-Prove the Editor builds, track spawns, car can drift, scoreboard updates, selection changes stats, and R reset works.
-Keep the model roster fictional and visually original. Record actual test results and any compile failures in reports/BUILD-REPORT.md.
-Then plan (do not silently substitute) the move from arcade physics to Chaos Vehicles. Submit a PR; do not merge without approval.
+Use repo pmoritz53678-del/rev-community-drift-game-, branch feature/ue5-drift-academy-v0.
+Read AGENTS.md, docs/CODEX-SCHOOLYARD-TASK.md, docs/SCHOOLYARD-TRACKS.md and docs/REUSE-ASSETS.md.
+Run npm tests/build in web/, then browser QA and screenshot review.
+Build Unreal Engine 5.8 scaffold and prove five-track spline import.
+Use UE Vehicle Template/Chaos with license compliance, build a campus hub and three tandem drift plus two race circuits.
+Keep fictional original cars and asset provenance. Do not edit You vs AI financial ledgers.
+Record actual tests/defects in reports/BUILD-REPORT.md. Submit PR, no auto merge.
 ```
-
-## Avoid
-- Never merge closed-course racing into Schoolhouse's existing Saturday car meet.
-- Do not copy imported meshes/models from another game.
-- No claims of an iPhone-ready app before Mac/Xcode signing, touch controls and device QA.
