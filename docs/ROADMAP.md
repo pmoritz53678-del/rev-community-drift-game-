@@ -1,42 +1,38 @@
-# Milestones
+# Schoolyard Motorsports — release plan
 
-## Stage 0 — current starter
-- [x] Independent GitHub repo identified
-- [x] Original 15-car catalog drafted
-- [x] Repo/Codex rules, engine project source and browser practice demo authored
-- [ ] Native Unreal build and Editor test **not yet verified**
-- [ ] Browser manual touch/device smoke test by owner
-- [ ] Imported, reviewed and textured original car art
+## v0.1: authored source on feature branch
+- [x] New independent public repository and feature branch
+- [x] 15 synchronized fictional car definitions, garage and two handling modes
+- [x] Three wide tandem drift course splines
+- [x] Two race circuit splines with provisional checkpoint/lap scoring
+- [x] Procedural 3D roads, Schoolhouse hub and eight park-to-enter department interfaces
+- [x] Live local game map and Outer Express scripted AI traffic
+- [x] Unreal 5.8 project source scaffold and five spline CSV exporter
+- [x] Verified candidate CC0/MIT source list and empty evidence ledger
+- [ ] npm test/build run on actual computer
+- [ ] browser/phone first-person visual and control smoke test
+- [ ] Unreal Editor build/run and project map authoring
+- [ ] custom player vehicle meshes with finished topology/rigging
 
-## Stage 1 — First playable closed-course
-- Unreal project opens on selected UE build
-- One simple test track, drivable pawn with steering, acceleration, handbrake, HUD
-- Drift angles, score, reset and basic 6-car switch
-- Low-poly original 3D static meshes as render-only visuals
-- Source control and smoke tests pass
+## v0.2: prove one fun circuit
+- [ ] Run browser smoke tests and fix camera, lighting, speed, HUD and control flaws
+- [ ] Add physical curbs, fences and car collision to prevent unrealistic through-wall behavior
+- [ ] Validate start/finish gates and off-course penalties against real driving attempts
+- [ ] Tune 1 drift and 1 race track for enjoyable phone handling
+- [ ] Replace 1 procedural car with legally sourced original final model
+- [ ] Persist car choices, basic settings and per-track best laps
 
-## Stage 2 — Proper physics and garage
-- Replace simple arcade movement with Chaos Vehicle physics using a *rigged skeletal mesh*, 4 wheel assets, suspension, tire/friction curves, mass transfer and torque curve
-- Garage, tuning (diff, gearing, tires, steering lock, alignment, weight), saved presets
-- Controller + on-screen mobile controls, camera modes, tire smoke, road sounds and replays
-- Data-driven original car models with LODs and legal provenance
+## v0.3: full five-track beta
+- [ ] Author all five polished course geometries with wide tandem design
+- [ ] Realistic skid decals, clouds/smoke, brake/suspension feedback and engine audio
+- [ ] Garage upgrades, checkpoint UI, 3D department interiors and NPCs
+- [ ] AI tandem ghost system; scripted safe race traffic with fair pass detection
+- [ ] Gamepad, touch/tilt steering, camera and performance scale settings
 
-## Stage 3 — Missions and local mode
-- Structured drift tutorials, clipping cones, zones, solo time attack on fictional tracks, AI ghosts
-- Offline progression with clearly disclosed local storage
-- 30 FPS baseline on designated lower-end phone; scalable effects
+## v1.0: native release candidate
+- [ ] Unreal Chaos Vehicle physics tuned for Drift and Grip presets
+- [ ] Unreal gameplay/navigation/map parity with browser project
+- [ ] Actual iOS / Android hardware tests and compliant signing/deployment
+- [ ] Rights and privacy/storefront audit, safety disclosures and final approval
 
-## Stage 4 — Online optional
-- Dedicated room matchmaking / authoritative scoring / anti-cheat; avoid P2P score authority
-- Club meets and photo mode **without street racing**
-- Consent-based telemetry and moderation if adding user-generated liveries / public names
-- Store QA, rights review and release gate
-
-## Acceptance criteria for initial playable
-1. On hardware, WASD accelerates/steers and Space triggers handbrake.
-2. A continuous drift at speed and angle above threshold generates points; driving straight does not.
-3. Reset restores safe spawn, clears score and removes stale inputs.
-4. Car selection changes name and handling.
-5. Track edges prevent unrestricted travel.
-6. No real trading, real-world unsafe-driving objective or external network calls.
-7. Compile and runtime results are documented honestly.
+**Not yet included:** multiplayer matchmaking, live servers, App Store build, public playable deployment, exact real-world car copies, licensed music, financial data connectivity. Each is a separate reviewed project.
