@@ -40,6 +40,7 @@ try{savedBuilds=validateCustomizations(JSON.parse(localStorage.getItem('rev-cust
 let currentBuild=normalizeBuild(savedBuilds[baseCar.id]);
 let aiRole='off',aiDriver=null,aiCarVisual=null,tandemPoints=0;
 let activeTab='drive',gameActive=false,portalOrbit=0;
+let snapCameraOnNextFrame=true;
 
 let activeTrack=findTrack('north-pines');
 let driveMode='drift';
@@ -504,7 +505,6 @@ function animateSmoke(dt){
     if(p.life<=0)p.cloud.visible=false;
   }
 }
-let snapCameraOnNextFrame=true;
 function setCamera(dt){
   const yaw=state.heading;
   let target=new THREE.Vector3(state.x,1.22,state.z);
