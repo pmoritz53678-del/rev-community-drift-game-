@@ -451,59 +451,113 @@ function saveBest(now){
   if(state.score>bestScore){bestScore=Math.floor(state.score);}
   if(now-lastSaved>3500){lastSaved=now;try{localStorage.setItem('rev-drift-best',String(bestScore))}catch{}}
 }
-function frame(now=0){
-  requestAnimationFrame(frame);
-  const dt=Math.min(clock.getDelta(),.05);
-  const command={
-    steer:Number(controls.right)-Number(controls.left),
-    throttle:Number(controls.throttle),
-    brake:Number(controls.brake),
-    handbrake:controls.handbrake,
-  };
-  state=stepCar(state,command,tunedCar,dt);
-  if(Math.abs(state.x)>117||Math.abs(state.z)>117){
-    state=resetAt();showToast('Back inside the practice boundary');
+// Simplified procedural AI cars on the closed Outer Express circuit.
+function trafficCarMesh(color){
+  const g=new THREE.Group();
+  const metal=new THREE.MeshStandardMaterial({color,roughness:.39,metalness:.46});
+  const windowMat=new THREE.MeshStandardMaterial({color:0x1c3037,roughness:.21,metalness:.18});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(2,.65,4.3),metal);
+  body.position.y=.72;g.add(body);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(1.6,.40,2.2),windowMat);
+  roof.position.set(0,1.22,.15);g.add(roof);
+  for(const x of [-1,1])for(const z of [-1.45,1.45]){
+    const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.39,.39,.23,8),new THREE.MeshStandardMaterial({color:0x11171a}));
+    wheel.rotation.z=Math.PI/2;wheel.position.set(x,.4,z);g.add(wheel);
   }
-  vehicle.position.set(state.x,.1,state.z);
-  vehicle.rotation.y=state.heading;
-  if(state.drifting && now-lastSmoke>65){lastSmoke=now;spawnSmoke();}
-  animateSmoke(dt);
-  setCamera(dt);
-  hud();
-  saveBest(now);
-  renderer.render(scene,camera);
+  g.visible=false;scene.add(g);return g;
+}
+circuitVehicles=circuitTraffic.map(c=>trafficCarMesh(c.color));
+const expressTrack=findTrack('outer-express');
+const expressPoints=sampleTrack(expressTrack,180);
+let expressLength=0;
+for(let i=0;i<expressPoints.length;i++){
+ const a=expressPoints[i],b=expressPoints[(i+1)%expressPoints.length];
+ expressLength+=Math.hypot(a.x-b.x,a.z-b.z);
+}
+function renderTraffic(dt){
+  const enabled=gameActive&&activeTab==='drive'&&!departmentOpen&&
+    activeTrack.id==='outer-express'&&driveMode==='grip';
+  for(const mesh of circuitVehicles)mesh.visible=enabled;
+  if(!enabled)return;
+  circuitTraffic=advanceCircuitTraffic(circuitTraffic,dt,expressTrack,expressLength);
+  const events=evaluateCircuitTraffic(circuitTraffic,state,expressTrack);
+  circuitTraffic=events.traffic;
+  nearPasses+=events.nearPasses;collisions+=events.collisions;
+  raceScore+=events.points;
+  if(events.collisions){
+    state.forward*=.36;state.lateral*=.4;
+    raceScore=Math.max(0,raceScore-120*events.collisions);
+    showToast('CONTACT / PENALTY');
+  } else if(events.nearPasses){
+    showToast('CLEAN PASS / +'+events.points);
+  }
+  circuitVehicles.forEach((mesh,i)=>{
+    const p=trafficPose(expressTrack,circuitTraffic[i]);
+    mesh.position.set(p.x,.04,p.z);mesh.rotation.y=p.heading;
+  });
+}
+function updateDepartmentPrompt(){
+  const nearby=nearbyDepartment(state,14);
+  const canEnter=gameActive&&activeTab==='drive'&&!departmentOpen&&
+    canEnterDepartment(state,nearby,14);
+  $('departmentPrompt').hidden=!canEnter;
+  if(canEnter)$('departmentPrompt').textContent='PARKED / ENTER '+nearby.short+' [E]';
+}
+function renderMaps(now){
+  if(now-lastMapDraw<90)return;
+  lastMapDraw=now;
+  drawSchoolMap($('minimap'),state,activeTrack.id,{local:true});
+  drawSchoolMap($('worldMap'),state,activeTrack.id);
 }
 function frame(now=0){
   requestAnimationFrame(frame);
   const dt=Math.min(clock.getDelta(),.05);
   if(gameActive){
-    if(activeTab==='drive'){
+    if(activeTab==='drive'&&!departmentOpen){
       const command={
         steer:Number(controls.right)-Number(controls.left),
         throttle:Number(controls.throttle),
         brake:Number(controls.brake),
-        handbrake:controls.handbrake,
+        handbrake:controls.handbrake
       };
-      state=stepCar(state,command,tunedCar,dt);
-      if(Math.abs(state.x)>117||Math.abs(state.z)>117){
-        state=resetAt();showToast('Back inside the practice boundary');
+      const pre=onTrack(activeTrack,state.x,state.z,trackSamples.get(activeTrack.id));
+      const allowDriftScore=driveMode==='drift'&&activeTrack.kind==='drift'&&pre.inside;
+      state=stepCar(state,command,tunedCar,dt,driveMode,allowDriftScore);
+      if(Math.abs(state.x)>525||Math.abs(state.z)>790){
+        setActiveTrack(activeTrack.id,{announce:false});
+        showToast('TRACK BOUNDARY / RETURNED TO START');
       }
-      if(state.drifting && now-lastSmoke>65){lastSmoke=now;spawnSmoke();}
+      if(activeTrack.kind==='race'&&driveMode==='grip'){
+        const position=onTrack(activeTrack,state.x,state.z,trackSamples.get(activeTrack.id));
+        const next=updateLapState(lapState,position.progress,position.inside,dt);
+        lapState=next.state;
+        if(next.completed){raceScore+=250;showToast('VALID LAP / +250');}
+      }
+      if(state.drifting&&now-lastSmoke>80){lastSmoke=now;spawnSmoke();}
     }
-    vehicle.position.set(state.x,.1,state.z);
+    vehicle.position.set(state.x,.10,state.z);
     vehicle.rotation.y=state.heading;
+    renderTraffic(dt);
     animateSmoke(dt);
     setCamera(dt);
     hud();
+    $('score').textContent=Math.floor(driveMode==='grip'?raceScore:state.score).toString().padStart(6,'0');
+    $('lapInfo').textContent=lapState.lap+' / '+nearPasses;
+    if(driveMode==='grip'){
+      $('combo').textContent=activeTrack.id==='outer-express'
+        ? 'PASSES '+nearPasses+' · CONTACT '+collisions
+        : 'LAPS '+lapState.lap+(lapState.bestSeconds?' · BEST '+lapState.bestSeconds.toFixed(1)+'S':'');
+    }
+    updateDepartmentPrompt();
+    renderMaps(now);
     saveBest(now);
   }else{
-    // The exact same 3D car is rendered as a cinematic menu preview.
-    // Steering / scoring only operate AFTER Parker presses Enter Drift Mode.
-    portalOrbit+=dt*.19;
-    vehicle.position.set(0,.11,0);
+    portalOrbit+=dt*.2;
+    vehicle.position.set(0,.1,0);
     vehicle.rotation.y=portalOrbit;
     camera.position.lerp(new THREE.Vector3(8.6+Math.sin(portalOrbit*.32)*2,4.9,10.8),Math.min(1,dt*3.2));
     camera.lookAt(new THREE.Vector3(0,1.05,0));
+    for(const mesh of circuitVehicles)mesh.visible=false;
     animateSmoke(dt);
   }
   renderer.render(scene,camera);
