@@ -19,8 +19,8 @@ const $ = (id)=>document.getElementById(id);
 const canvas=$('gameCanvas');
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x182a2e);
-scene.fog=new THREE.FogExp2(0x182a2e,0.007);
-const camera=new THREE.PerspectiveCamera(63,1,0.1,700);
+scene.fog=new THREE.FogExp2(0x182a2e,0.0015);
+const camera=new THREE.PerspectiveCamera(59,1,0.1,1300);
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1,1.75));
 renderer.shadowMap.enabled=false;
@@ -234,6 +234,7 @@ for(const id of ['bodyKitSelect','wheelKitSelect','wingKitSelect'])
   $(id).addEventListener('change',applyBuildKit);
 function showTab(name){
   activeTab=name;
+  snapCameraOnNextFrame=true;
   for(const control of Object.keys(controls)) controls[control]=false;
   document.querySelectorAll('[data-pane]').forEach(el=>el.classList.toggle('hidden',el.dataset.pane!==name));
   document.querySelectorAll('[data-tab]').forEach(el=>el.classList.toggle('active',el.dataset.tab===name));
@@ -299,6 +300,7 @@ function advanceAIDriver(dt){
 }
 
 function setActiveTrack(id,{announce=true,reset=true}={}){
+  snapCameraOnNextFrame=true;
   activeTrack=findTrack(id);
   $('quickTrack').value=activeTrack.id;
   $('trackName').textContent=activeTrack.short;
@@ -455,6 +457,7 @@ function returnToGarage() {
   portal.hidden=false;
   app.classList.add('app-inactive');
   portalStage.append(canvas);
+  camera.position.set(8,5,11);
   history.replaceState(null,'',location.pathname+'#/home');
   try{localStorage.setItem('rev-drift-best',String(bestScore));}catch{}
   resize();
@@ -501,14 +504,39 @@ function animateSmoke(dt){
     if(p.life<=0)p.cloud.visible=false;
   }
 }
+let snapCameraOnNextFrame=true;
 function setCamera(dt){
   const yaw=state.heading;
-  const target=new THREE.Vector3(state.x,1.5,state.z);
+  let target=new THREE.Vector3(state.x,1.22,state.z);
   let desired;
-  if(cameraMode===1){desired=new THREE.Vector3(state.x,43,state.z+12);target.y=0;}
-  else if(cameraMode===2){desired=new THREE.Vector3(state.x+Math.sin(yaw)*8,3.8,state.z+Math.cos(yaw)*8);}
-  else{desired=new THREE.Vector3(state.x+Math.sin(yaw)*15,8.5,state.z+Math.cos(yaw)*15);}
-  camera.position.lerp(desired,Math.min(1,dt*5.5));
+  if(activeTab==='garage'){
+    // Premium, near-field rotating garage view: make wheel and kit choices readable.
+    const orbit=clock.elapsedTime*.22+.45;
+    desired=new THREE.Vector3(
+      state.x+Math.sin(orbit)*7.2,
+      3.4,
+      state.z+Math.cos(orbit)*7.2);
+    target.y=1.04;
+  } else if(activeTab==='world'){
+    // Schoolyard overview; a game scene, while the sidebar gives a precise live map.
+    desired=new THREE.Vector3(-12,470,220);
+    target=new THREE.Vector3(-12,0,100);
+  } else if(cameraMode===1){
+    desired=new THREE.Vector3(state.x,35,state.z+5);
+    target.y=0;
+  } else if(cameraMode===2){
+    desired=new THREE.Vector3(
+      state.x+Math.sin(yaw)*5.3,3.1,state.z+Math.cos(yaw)*5.3);
+  } else {
+    desired=new THREE.Vector3(
+      state.x+Math.sin(yaw)*10,5.4,state.z+Math.cos(yaw)*10);
+  }
+  if(snapCameraOnNextFrame){
+    camera.position.copy(desired);
+    snapCameraOnNextFrame=false;
+  } else {
+    camera.position.lerp(desired,Math.min(1,dt*(activeTab==='garage'?3.2:6.5)));
+  }
   camera.lookAt(target);
 }
 function hud(){
@@ -606,7 +634,7 @@ function frame(now=0){
       if(state.drifting&&now-lastSmoke>80){lastSmoke=now;spawnSmoke();}
     }
     vehicle.position.set(state.x,.10,state.z);
-    vehicle.rotation.y=state.heading;
+    vehicle.rotation.y=activeTab==='garage'?state.heading+clock.elapsedTime*.22:state.heading;
     advanceAIDriver(activeTab==='drive'&&!departmentOpen?dt:0);
     renderTraffic(dt);
     animateSmoke(dt);
