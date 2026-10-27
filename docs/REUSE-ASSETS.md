@@ -27,3 +27,11 @@ These publicly available sources can save weeks of blockout and art work. **Not 
 - pmndrs racing-game GitHub project lists **MIT** and identifies its own assets as CC0.
 - Epic Vehicle Template documentation describes a Chaos-compatible car and Timetrial map with checkpoints; Epic EULA still governs it.
 - Always re-check source version and included file licenses at download time, and preserve the actual license text in the asset ledger.
+## October 27, 2026 JDM-style customization candidates
+
+1. **[IceMaan — Free Low Poly Car, 3 body kits, 4 rims](https://icemaan.itch.io/free-low-poly-car2-3-body-kits-4-rims)**: publisher explicitly provides 3 body kits, 4 wheel choices and 1 spoiler in a 634 kB FBX ZIP, identified as **CC0**. The download requires proceeding through the itch.io page; this project's build does **not** yet include those external FBX files.
+2. **[Cosmo — Low Poly Cars](https://cosmo-art.itch.io/low-poly-cars)**: the **free 12-vehicle version** is explicitly CC0, with FBX/OBJ/GLTF options and separate wheels. The premium 11 vehicles are **not CC0** and cannot be redistributed as standalone packs. We have not imported either version.
+
+**Immediate playable fallback implemented**: `web/src/carVisuals.js` and `web/src/kits.js` procedurally build three original body-kit styles, four wheel styles and three wing choices for the fictional player fleet, including red calipers. Those changes alter geometry and handling parameters. This is our own original placeholder work, not the IceMaan/Cosmo meshes.
+
+**When the authorized CC0 ZIP has been downloaded:** verify the exact included CC0 license, unpack to a local art inbox, open the FBX files in Blender or Unreal, distinguish wheel bones and body mesh components, export a rigged game-ready vehicle where necessary, update `docs/ASSET-LEDGER.csv` with the actual file version and import date, then test on both engines. Retain the source link/license within the project. Do not treat FBX static models as automatically ready for Chaos Vehicles—they require vehicle physics rigging and collision components.
