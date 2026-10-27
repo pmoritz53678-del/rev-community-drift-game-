@@ -1,13 +1,15 @@
+import {findTrack,getTrackSpawn,onTrack} from './tracks.js';
 // Fictional REV world. All coordinates are local game meters, not GPS.
 // Schoolhouse department names are an artistic adaptation, not a financial-data connection.
 export const SPAWNS = Object.freeze({
-  drift:{x:0,z:18,heading:0,name:'DRIFT PRACTICE PAD'},
-  highway:{x:161,z:342,heading:0,name:'REV HIGHWAY / CLOSED-COURSE TRAFFIC'},
+  drift:{...getTrackSpawn(findTrack('north-pines')),name:'NORTH PINES TANDEM'},
+  highway:{...getTrackSpawn(findTrack('outer-express')),name:'OUTER EXPRESS / SCHOOLYARD CLOSED COURSE'},
   campus:{x:-50,z:-91,heading:0,name:'SCHOOLHOUSE YARD'},
   garage:{x:48,z:-30,heading:0,name:'REV COMMUNITY GARAGE'},
   meet:{x:-57,z:65,heading:0,name:'COMMUNITY CAR MEET / PARK ONLY'},
 });
-export const WORLD_BOUNDS = Object.freeze({minX:-250,maxX:265,minZ:-435,maxZ:440});
+export const WORLD_BOUNDS = Object.freeze({minX:-525,maxX:525,minZ:-790,maxZ:790});
+// Legacy compatibility for early traffic prototype, not used by the five-track scene.
 export const HIGHWAY = Object.freeze({
   west:128,east:232,minZ:-420,maxZ:420,
   lanes:[145,156,167,178,189,200,211,222],
@@ -64,6 +66,5 @@ export function canEnterDepartment(state,department,reach=12) {
     Math.hypot(state.x-department.x,state.z-department.z) <=reach);
 }
 export function nearHighway(state) {
-  return state.x>=HIGHWAY.west && state.x<=HIGHWAY.east &&
-   state.z>=HIGHWAY.minZ && state.z<=HIGHWAY.maxZ;
+  return Boolean(state && onTrack(findTrack('outer-express'),state.x,state.z).inside);
 }
