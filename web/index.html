@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0b1115"/>
+  <meta name="description" content="REV Community Drift Academy — original 3D drifting prototype with a 15-car fictional roster."/>
+  <title>REV Community — Drift Academy</title>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="logo"><span class="rev">REV<span class="slash">/</span></span><span class="brand-caption">COMMUNITY<br/><strong>DRIFT ACADEMY</strong></span></div>
+      <nav class="nav" aria-label="Game sections">
+        <button class="nav-btn active" data-tab="drive">DRIVE</button>
+        <button class="nav-btn" data-tab="garage">GARAGE</button>
+        <button class="nav-btn" data-tab="challenges">CHALLENGES</button>
+        <button class="nav-btn" data-tab="world">WORLD</button>
+      </nav>
+      <div class="status"><span class="pulse"></span> PROTOTYPE 0.1</div>
+    </header>
+    <main class="game-shell">
+      <section class="viewport" aria-label="3D drift practice arena">
+        <canvas id="gameCanvas" aria-label="Real-time 3D car driving game"></canvas>
+        <div class="view-overlay">
+          <div class="eyebrow">FREE PRACTICE / ORIGINAL CAR CULTURE WORLD</div>
+          <div class="location" id="location">SUNSET PRACTICE PAD</div>
+        </div>
+        <div class="speedometer">
+          <div class="speed-number" id="speed">000</div>
+          <div class="units">KM/H</div>
+          <div class="speed-label">VEHICLE SPEED</div>
+        </div>
+        <div class="hud-right">
+          <div class="hud-top">DRIFT SCORE <strong id="score">000000</strong></div>
+          <div class="hud-top">ANGLE <strong><span id="angle">0</span>°</strong></div>
+          <div class="combo" id="combo">NO ACTIVE DRIFT</div>
+        </div>
+        <div class="hud-bottom"><span id="carName">KISORA NOVA S</span><span id="driveType">RWD</span><span>REV COMMUNITY / DRIFT ACADEMY</span></div>
+        <div class="toast" id="toast" role="status" aria-live="polite">Welcome to REV Drift Academy</div>
+        <div class="touch-controls" aria-label="Mobile driving controls">
+          <div class="touch-group">
+            <button data-control="left" aria-label="Steer left">◀</button>
+            <button data-control="right" aria-label="Steer right">▶</button>
+          </div>
+          <div class="touch-group">
+            <button data-control="handbrake" class="handbrake">DRIFT</button>
+            <button data-control="brake">BRAKE</button>
+            <button data-control="throttle" class="throttle">GO</button>
+          </div>
+        </div>
+      </section>
+      <aside class="sidebar" id="sidebar">
+        <section class="side-pane" data-pane="drive">
+          <div class="panel-kicker">01 / TEST DRIVE</div>
+          <h1>MAKE THE CORNER<br/><em>YOUR OWN.</em></h1>
+          <p class="description">Start with a simple car, learn your line, then hold the slide. No timers, no purchases, no distractions.</p>
+          <div class="info-strip"><span>CAR</span><strong id="driveCar">KISORA NOVA S</strong></div>
+          <div class="info-strip"><span>DRIVE</span><strong id="driveDrive">REAR WHEEL</strong></div>
+          <div class="info-strip"><span>MODE</span><strong>FREE PRACTICE</strong></div>
+          <div class="control-help"><strong>KEYBOARD</strong><div><kbd>W</kbd> Accelerate &nbsp; <kbd>A</kbd><kbd>D</kbd> Steer<br/><kbd>S</kbd> Brake &nbsp; <kbd>SPACE</kbd> Handbrake<br/><kbd>C</kbd> Camera &nbsp; <kbd>R</kbd> Reset</div></div>
+          <div class="button-stack"><button class="action primary" id="resetButton">RESET VEHICLE</button><button class="action" id="cameraButton">SWITCH CAMERA</button></div>
+          <div class="hint">A working arcade prototype. Realistic Chaos Vehicle physics will be developed in the Unreal project.</div>
+        </section>
+        <section class="side-pane hidden" data-pane="garage">
+          <div class="panel-kicker">02 / GARAGE</div>
+          <h1>BUILD YOUR<br/><em>OWN STYLE.</em></h1>
+          <p class="description">Fifteen original cars across JDM, European, exotic, hypercar and support classes.</p>
+          <label class="field-label" for="category">VEHICLE CLASS</label>
+          <select id="category" aria-label="Car category"></select>
+          <label class="field-label" for="carSelect">SELECT VEHICLE</label>
+          <select id="carSelect" aria-label="Car model"></select>
+          <div class="spec-row"><div><span id="makeDisplay">KISORA</span><strong id="modelDisplay">NOVA S</strong></div><span class="tag" id="carClass">JDM</span></div>
+          <p class="vehicle-story" id="carStory"></p>
+          <div class="stats"><div><span>POWER</span><strong id="power">285 HP</strong></div><div><span>WEIGHT</span><strong id="weight">1220 KG</strong></div><div><span>DRIVE</span><strong id="drivetrain">RWD</strong></div></div>
+          <label class="field-label" for="gripTune">TIRE GRIP <output id="gripValue">69</output></label>
+          <input type="range" id="gripTune" min="35" max="100" value="69"/>
+          <label class="field-label" for="handlingTune">STEERING RESPONSE <output id="handlingValue">88</output></label>
+          <input type="range" id="handlingTune" min="35" max="100" value="88"/>
+          <label class="field-label">PAINT FINISH</label>
+          <div class="paint-row" id="paints"></div>
+          <button class="action primary" id="driveSelected">DRIVE THIS CAR</button>
+          <div class="hint">Original placeholder designs. Not licensed replicas of real manufacturers.</div>
+        </section>
+        <section class="side-pane hidden" data-pane="challenges">
+          <div class="panel-kicker">03 / PROGRESSION</div>
+          <h1>LEARN THE<br/><em>LONG WAY.</em></h1>
+          <p class="description">Progress is earned behind the wheel. Your scores are stored locally on your device.</p>
+          <div id="challengeList"></div>
+          <button class="action" id="clearScores">CLEAR LOCAL PRACTICE SCORES</button>
+          <div class="hint">No multiplayer leaderboards or real rewards are connected in version 0.1.</div>
+        </section>
+        <section class="side-pane hidden" data-pane="world">
+          <div class="panel-kicker">04 / OPEN WORLD</div>
+          <h1>YOUR CITY.<br/><em>YOUR COMMUNITY.</em></h1>
+          <p class="description">These are the first environments for an original automotive campus. Select a location to start there.</p>
+          <div class="zone-list" id="zones"></div>
+          <div class="world-note"><strong>SCHOOLHOUSE CONNECTION</strong><br/>The social car meet remains a non-racing event. Driving and scoring happen here in the dedicated academy.</div>
+          <div class="hint">The full walkable campus, populated interiors, and mission system are planned for Unreal Engine.</div>
+        </section>
+        <footer class="side-footer">DRIVEN BY CARS. CONNECTED BY COMMUNITY.<br/><small>REV COMMUNITY · EARLY PLAYABLE BUILD</small></footer>
+      </aside>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
