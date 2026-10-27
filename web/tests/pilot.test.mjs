@@ -31,3 +31,16 @@ test('AI driver senses track and returns bounded controls',()=>{
   assert.ok(Number.isFinite(step.state.x)&&Number.isFinite(step.state.z));
   assert.ok(step.state.speedKmh>0);
 });
+
+test('AI lead achieves drifting points on the wide East Bowl circuit',()=>{
+  const track=TRACKS.find(x=>x.id==='east-bowl'),car=findCar('ember');
+  let bot=createAIDriver(track,'LEAD');
+  let driftingFrames=0;
+  for(let i=0;i<1200;i++){
+    bot=stepAIDriver(bot,{x:0,z:0,speedKmh:0},track,car,1/60);
+    if(bot.state.drifting)driftingFrames++;
+  }
+  assert.ok(driftingFrames>100,'AI should actually slide, not only follow the road');
+  assert.ok(bot.state.score>250,'AI pilot should earn positive drift points');
+  assert.equal(bot.resetCount,0,'AI should not leave and reset repeatedly');
+});
