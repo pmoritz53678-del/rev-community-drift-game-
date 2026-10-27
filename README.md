@@ -61,3 +61,11 @@ Install Unreal from https://www.unrealengine.com/download then read [Unreal setu
 Only original hero car shapes and fictional brands. CC0 and MIT assets are **candidates until actually downloaded and logged**, not already imported. This public repo never reads private Schoolhouse investment data or logs, never executes real trades, and never offers real-world street racing. See [AGENTS](AGENTS.md), [repository rules](docs/REPO-RULES.md) and [rights](docs/ASSET-IP-LICENSING.md).
 
 **Brand spirit:** *Driven by cars. Connected by community.*
+## v0.2 first test pilot — original JDM kits and AI tandem
+
+- **Garage:** three procedurally built fictional body kits (factory, street and widebody), four rims, three spoilers and six paint choices. A build changes the 3D car, updates its grip/weight baseline, and saves **per fictional car** in browser local storage.
+- **AI Tandem:** optional Lead and Chase partner on the three drift circuits; script-controlled track sensing and curvature feed-forward into the *same* arcade physics module as the player. This is agent-style game AI, not AGI or trained machine intelligence. Tandem proximity earns separate bonus points.
+- **QA:** Node tests include kit stats, red calipers, geometry changes and 30-second simulated AI drifting. GitHub Actions also runs Playwright Chromium gameplay navigation and captures screenshots in `rev-schoolyard-e2e` when available.
+- **External art:** CC0 IceMaan and Cosmo packs are approved import candidates; actual FBX/GLTF files **are not yet committed**. Original procedural car parts are currently the playable substitutes.
+
+Read [first pilot testing](docs/PILOT-v0.2.md) before calling this production-ready. The Unreal native prototype remains **uncompiled**; the current pilot is a Three.js/Vite web build.
