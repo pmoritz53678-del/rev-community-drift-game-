@@ -1,0 +1,52 @@
+import {test,expect} from '@playwright/test';
+
+test('garage -> drift -> JDM kits -> AI -> five tracks -> return',async({page})=>{
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.goto('/');
+  await expect(page.locator('#portal')).toBeVisible();
+  await expect(page.locator('#portalStart')).toBeVisible();
+  await page.locator('#portalStart').click();
+  await expect(page.locator('#portal')).toBeHidden();
+  await expect(page.locator('#trackName')).toHaveText('NORTH PINES');
+  await page.locator('[data-tab="garage"]').click();
+  await expect(page.locator('#carSelect')).toHaveValue('nova');
+  await page.locator('#bodyKitSelect').selectOption('wide');
+  await page.locator('#wheelKitSelect').selectOption('mesh');
+  await page.locator('#wingKitSelect').selectOption('gt');
+  await expect(page.locator('#bodyKitSelect')).toHaveValue('wide');
+  await page.locator('#carSelect').selectOption('ember');
+  await page.locator('#carSelect').selectOption('nova');
+  await expect(page.locator('#bodyKitSelect')).toHaveValue('wide');
+  await page.screenshot({path:'test-results/pilot-garage.png',fullPage:true});
+  await page.locator('[data-tab="drive"]').click();
+  await page.locator('#aiRoleSelect').selectOption('lead');
+  await page.keyboard.down('w');
+  await page.waitForTimeout(800);
+  await page.keyboard.up('w');
+  await expect(page.locator('#speed')).not.toHaveText('000');
+  await page.locator('#quickTrack').selectOption('east-bowl');
+  await expect(page.locator('#trackName')).toHaveText('EAST BOWL');
+  await page.locator('#gripMode').click();
+  await expect(page.locator('#modeName')).toHaveText('GRIP');
+  await page.locator('#driftMode').click();
+  await expect(page.locator('#modeName')).toHaveText('DRIFT');
+  await page.locator('[data-tab="world"]').click();
+  await expect(page.locator('#zones button')).toHaveCount(5);
+  await expect(page.locator('#departmentList button')).toHaveCount(8);
+  await page.screenshot({path:'test-results/pilot-world.png',fullPage:true});
+  await page.locator('#exitToPortal').click();
+  await expect(page.locator('#portal')).toBeVisible();
+  expect(errors,errors.join('\n')).toEqual([]);
+});
+
+test('direct high-grip entry and closed-circuit controls',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/?mode=grip');
+  await expect(page.locator('#portal')).toBeHidden();
+  await expect(page.locator('#modeName')).toHaveText('GRIP');
+  await expect(page.locator('#trackName')).toHaveText('OUTER EXPRESS');
+  await expect(page.locator('#gameCanvas')).toBeVisible();
+  await page.screenshot({path:'test-results/pilot-grip.png'});
+  expect(errors,errors.join('\n')).toEqual([]);
+});
