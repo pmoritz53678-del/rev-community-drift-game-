@@ -2,6 +2,12 @@ import * as THREE from 'three';
 import './style.css';
 import {CARS,CATEGORIES,findCar} from './roster.js';
 import {newCarState,stepCar,resetAt} from './physics.js';
+import {TRACKS, findTrack, getTrackSpawn, pointOnTrack, sampleTrack, onTrack, newLapState, updateLapState} from './tracks.js';
+import {DEPARTMENTS, nearbyDepartment, canEnterDepartment} from './world.js';
+import {buildSchoolyardWorld} from './renderSchoolyard.js';
+import {drawSchoolMap} from './mapUI.js';
+import {createCircuitTraffic, advanceCircuitTraffic, trafficPose, evaluateCircuitTraffic} from './circuitTraffic.js';
+
 
 // REV COMMUNITY DRIFT ACADEMY v0.1
 // Procedural THREE.JS preview scene. The Unreal project is a separate future native build.
@@ -27,18 +33,21 @@ const controls={left:false,right:false,throttle:false,brake:false,handbrake:fals
 let state=newCarState(),baseCar=findCar('nova'),tunedCar={...baseCar};
 let vehicle=null,currentColor=baseCar.color,cameraMode=0,activeZone='SUNSET PRACTICE PAD';
 let activeTab='drive',gameActive=false,portalOrbit=0;
+
+let activeTrack=findTrack('north-pines');
+let driveMode='drift';
+let lapState=newLapState(),nearPasses=0,collisions=0,raceScore=0,lastMapDraw=0;
+let departmentOpen=false,currentDepartment=null;
+let circuitTraffic=createCircuitTraffic(11);
+let circuitVehicles=[];
+const trackSamples=new Map(TRACKS.map(t=>[t.id,sampleTrack(t,160)]));
+
 let bestScore=0,lastSaved=0,lastSmoke=0,noticeTimer=0;
 try{bestScore=Number(localStorage.getItem('rev-drift-best')||0)}catch{}
 const PAINTS=[
   {name:'Factory Silver',value:0x9ba5ab},{name:'Midnight Black',value:0x22272a},
   {name:'Motorsport Green',value:0x416d57},{name:'Signal Orange',value:0xed6b36},
   {name:'Championship Red',value:0xd44747},{name:'Pearl White',value:0xe9e9df},
-];
-const ZONES=[
-  {name:'Sunset Practice Pad',description:'Open-space drifting and car control',x:0,z:0},
-  {name:'Garage & Tuning',description:'Vehicle selection, service and styling',x:40,z:-44},
-  {name:'Community Meet Lot',description:'Parked cars and conversation — no racing',x:-54,z:49},
-  {name:'Schoolhouse Gate',description:'Future entrance to the Schoolhouse campus',x:-64,z:-50},
 ];
 const CHALLENGES=[
   {target:500,title:'First Slide',description:'Earn your first 500 drift points.'},
@@ -79,76 +88,6 @@ function addCones(cx,cz,radius,count=12) {
     const cone=new THREE.Mesh(new THREE.ConeGeometry(.44,1.15,7),new THREE.MeshStandardMaterial({color:0xf58b47,roughness:0.8}));
     cone.position.set(x,.58,z);scene.add(cone);
     createBox(.65,.07,.65,new THREE.MeshStandardMaterial({color:0xf3e4cc}),x,.05,z);
-  }
-}
-function createWorld(){
-  const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),asphalt);
-  ground.rotation.x=-Math.PI/2;ground.position.y=-.15;scene.add(ground);
-  // Track surface and radial drift circles.
-  createBox(185,.12,185,new THREE.MeshStandardMaterial({color:0x354344,roughness:.95}),0,-.08,0);
-  for(const radius of [15,25,34]){
-    const circle=new THREE.Mesh(new THREE.RingGeometry(radius-.08,radius+.08,160),new THREE.MeshBasicMaterial({color:radius===25?0xd9ae6b:0x83989a,side:THREE.DoubleSide,transparent:true,opacity:.5}));
-    circle.rotation.x=-Math.PI/2;circle.position.set(-9,.015,-2);scene.add(circle);
-  }
-  addCones(-9,-2,28,13);
-  for(let x=-84;x<=84;x+=14){
-    paintStripe(x,88,7,.14,0xc9c4b2);
-    paintStripe(x,-88,7,.14,0xc9c4b2);
-  }
-  for(let z=-84;z<=84;z+=14){
-    paintStripe(88,z,.14,7,0xc9c4b2);
-    paintStripe(-88,z,.14,7,0xc9c4b2);
-  }
-  // Small technical slalom and clipping gates.
-  for(let n=0;n<9;n++){
-    const x=-65+n*12,z=-8+Math.sin(n*1.2)*15;
-    const marker=new THREE.Mesh(new THREE.ConeGeometry(.5,1.3,8),new THREE.MeshStandardMaterial({color:0xf2a649}));
-    marker.position.set(x,.64,z);scene.add(marker);
-  }
-  // Tuning garage.
-  createBox(32,11,19,green,48,5.3,-48);
-  createBox(34,.7,21,concrete,48,11.1,-48);
-  for(let i=0;i<3;i++){
-    createBox(8,7,.15,new THREE.MeshStandardMaterial({color:0x121d20,metalness:.45,roughness:.5}),36+i*11,4,-38.3);
-    paintStripe(36+i*11,-30,4,.14,0xd8a054);
-  }
-  sign('REV COMMUNITY GARAGE',27,4,48,10.1,-37.85);
-  // Social car meet separated from practice.
-  createBox(48,.04,30,new THREE.MeshStandardMaterial({color:0x384345}),-57,.01,51);
-  for(let row=0;row<2;row++)for(let col=0;col<5;col++){
-    const x=-77+col*10,z=45+row*12;
-    paintStripe(x-4,z,.12,8,0xe2dfd1);
-    paintStripe(x+4,z,.12,8,0xe2dfd1);
-  }
-  createBox(3,2,3,warm,-52,1,33);
-  sign('SATURDAY CAR MEET / NO RACING',31,4,-55,5.5,65,0);
-  // Schoolhouse entry — visual landmark, not interactive finance surface.
-  createBox(34,16,21,new THREE.MeshStandardMaterial({color:0x7c8582,roughness:.95}),-63,8,-56);
-  createBox(38,1.1,25,new THREE.MeshStandardMaterial({color:0x354a48}),-63,16.4,-56);
-  createBox(8,11,.3,new THREE.MeshStandardMaterial({color:0x213339,metalness:.2,roughness:.3}),-63,5.5,-45.35);
-  sign('SCHOOLHOUSE / VISUAL GATE',30,3,-63,13.1,-45.25);
-  // Guardrails: not physics colliders in this first browser build.
-  for(let n=0;n<14;n++) {
-    const x=-90+n*14;
-    createBox(11,1,.85,new THREE.MeshStandardMaterial({color:n%2?0xe6bd72:0x485f5e}),x,.4,-94);
-    createBox(11,1,.85,new THREE.MeshStandardMaterial({color:n%2?0x485f5e:0xe6bd72}),x,.4,94);
-  }
-  // Low-poly background skyline and trees.
-  const buildingMats=[0x304c4e,0x3b5153,0x263f42,0x455354].map(color=>new THREE.MeshStandardMaterial({color,roughness:1}));
-  for(let i=0;i<100;i++){
-    const a=(i/100)*Math.PI*2,r=130+(i%7)*6;
-    const h=12+((i*13)%29);
-    const x=Math.cos(a)*r,z=Math.sin(a)*r;
-    createBox(9+(i%3)*4,h,8+(i%4)*2,buildingMats[i%4],x,h/2-.1,z);
-  }
-  const trunkMat=new THREE.MeshStandardMaterial({color:0x3f372e});
-  const foliageMat=new THREE.MeshStandardMaterial({color:0x2b4d42});
-  for(let i=0;i<37;i++){
-    const a=(i/37)*Math.PI*2,r=104+(i%4)*2;
-    const x=Math.cos(a)*r,z=Math.sin(a)*r;
-    createBox(.8,5,.8,trunkMat,x,2.5,z);
-    const top=new THREE.Mesh(new THREE.ConeGeometry(4,11,6),foliageMat);
-    top.position.set(x,10,z);scene.add(top);
   }
 }
 function buildCar(car,color){
@@ -205,7 +144,7 @@ function resize(){
   renderer.setSize(width,height,false);
   camera.aspect=width/height;camera.updateProjectionMatrix();
 }
-createWorld();
+buildSchoolyardWorld(scene);
 function showToast(message){
   const toast=$('toast');toast.textContent=message;
   toast.classList.add('show');clearTimeout(noticeTimer);
@@ -283,18 +222,98 @@ function renderChallenges(){
     $('challengeList').append(item);
   }
 }
-function teleport(zone) {
-  activeZone=zone.name.toUpperCase();$('location').textContent=activeZone;
-  state=resetAt(zone.x,zone.z);
-  showToast(zone.name+' ready');
+function setDriveMode(mode,{announce=true}={}){
+  driveMode=mode==='grip'?'grip':'drift';
+  $('driftMode').classList.toggle('selected',driveMode==='drift');
+  $('gripMode').classList.toggle('selected',driveMode==='grip');
+  $('modeName').textContent=driveMode==='grip'?'GRIP':'DRIFT';
+  $('sideMode').textContent=driveMode==='grip'?'HIGH GRIP / RACE':'DRIFT / TANDEM';
+  lapState=newLapState();
+  if(announce)showToast(driveMode==='grip'?'HIGH GRIP MODE / CIRCUIT SETUP':'DRIFT MODE / TANDEM SETUP');
 }
-for(const item of ZONES){
+function setActiveTrack(id,{announce=true,reset=true}={}){
+  activeTrack=findTrack(id);
+  $('quickTrack').value=activeTrack.id;
+  $('trackName').textContent=activeTrack.short;
+  $('sideTrack').textContent=activeTrack.short;
+  activeZone=activeTrack.name;
+  $('location').textContent=activeZone;
+  if(reset){
+    const spawn=getTrackSpawn(activeTrack);
+    state=resetAt(spawn.x,spawn.z,spawn.heading);
+    lapState=newLapState();nearPasses=0;collisions=0;raceScore=0;
+    circuitTraffic=createCircuitTraffic(11);
+  }
+  if(announce)showToast(activeTrack.name+' / '+activeTrack.difficulty);
+}
+function teleportDepartment(dept){
+  state=resetAt(dept.x,dept.z+8,0);
+  $('location').textContent=dept.name+' / PARK HERE';
+  activeZone='SCHOOLYARD CAMPUS';
+  showTab('drive');
+  showToast('Park fully and press E to enter '+dept.short);
+}
+for(const track of TRACKS){
+  const option=document.createElement('option');option.value=track.id;
+  option.textContent=track.number+' / '+track.short;
+  $('quickTrack').append(option);
   const btn=document.createElement('button');
-  btn.className='zone';
-  btn.innerHTML='<span><strong>'+item.name+'</strong><small>'+item.description+'</small></span><span>GO ›</span>';
-  btn.addEventListener('click',()=>{teleport(item);showTab('drive');});
+  btn.className='zone track-zone';
+  btn.style.setProperty('--track-color',track.theme);
+  const text=document.createElement('span');
+  const title=document.createElement('strong');title.textContent=track.name;
+  const type=document.createElement('small');type.className='zone-type';
+  type.textContent=(track.kind==='drift'?'DRIFT / WIDE CORNERS':'RACE / CIRCUIT')+' · '+track.difficulty;
+  const desc=document.createElement('small');desc.textContent=track.description;
+  text.append(title,type,desc);
+  const go=document.createElement('span');go.textContent='GO ›';
+  btn.append(text,go);
+  btn.addEventListener('click',()=>{
+    setDriveMode(track.kind==='race'?'grip':'drift',{announce:false});
+    setActiveTrack(track.id);showTab('drive');
+  });
   $('zones').append(btn);
 }
+for(const dept of DEPARTMENTS){
+  const btn=document.createElement('button');btn.className='zone';
+  const content=document.createElement('span'),title=document.createElement('strong'),subtitle=document.createElement('small');
+  title.textContent=dept.name;subtitle.textContent=dept.category;
+  content.append(title,subtitle);
+  const go=document.createElement('span');go.textContent='PARK ›';
+  btn.append(content,go);
+  btn.addEventListener('click',()=>teleportDepartment(dept));
+  $('departmentList').append(btn);
+}
+$('quickTrack').addEventListener('change',e=>{
+  const track=findTrack(e.target.value);
+  setDriveMode(track.kind==='race'?'grip':'drift',{announce:false});
+  setActiveTrack(track.id);
+});
+$('driftMode').addEventListener('click',()=>setDriveMode('drift'));
+$('gripMode').addEventListener('click',()=>setDriveMode('grip'));
+$('worldButton').addEventListener('click',()=>showTab('world'));
+$('expandMap').addEventListener('click',()=>showTab('world'));
+$('departmentPrompt').addEventListener('click',openNearbyDepartment);
+$('closeDepartment').addEventListener('click',closeDepartment);
+function openNearbyDepartment(){
+  const dept=nearbyDepartment(state,14);
+  if(!dept||!canEnterDepartment(state,dept,14)){
+    showToast('Stop and park closer to a department entrance');
+    return;
+  }
+  currentDepartment=dept;departmentOpen=true;
+  $('departmentCategory').textContent=dept.category.toUpperCase();
+  $('departmentTitle').textContent=dept.name;
+  $('departmentLead').textContent=dept.lead;
+  $('departmentDetail').textContent=dept.detail;
+  $('departmentModal').hidden=false;
+  for(const key of Object.keys(controls))controls[key]=false;
+}
+function closeDepartment(){
+  departmentOpen=false;currentDepartment=null;
+  $('departmentModal').hidden=true;
+}
+
 for(const category of CATEGORIES){
   const option=document.createElement('option');option.value=category;option.textContent=category;
   $('category').append(option);
