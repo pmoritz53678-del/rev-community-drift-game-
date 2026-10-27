@@ -1,0 +1,14 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Games",
+  "Description": "REV Community Schoolyard Motorsports. Five authored courses, local prototype and Unreal development bridge. Unreal starter uncompiled.",
+  "Modules": [
+    {
+      "Name": "REVDrift",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": []
+}
