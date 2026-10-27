@@ -1,0 +1,7 @@
+asset_id,publisher,source_url,license,version,downloaded,imported,reviewed,notes
+kenney-racing-kit,Kenney,https://kenney.nl/assets/racing-kit,CC0,1.0,false,false,false,110 item blockout candidate
+kenney-car-kit,Kenney,https://kenney.nl/assets/car-kit,CC0,3.1,false,false,false,45 item unbranded traffic candidate
+kenney-nature-kit,Kenney,https://kenney.nl/assets/nature-kit,verify exact version,unselected,false,false,false,verify pack licensing
+quaternius-campus,Quaternius,https://quaternius.com,verify exact pack,unselected,false,false,false,do not import unreviewed files
+pmndrs-racing-code,pmndrs,https://github.com/pmndrs/racing-game,MIT,main,false,false,false,pattern reference only - no code copied
+epic-vehicle-template,Epic Games,https://dev.epicgames.com/documentation/unreal-engine/vehicle-template-in-unreal-engine,Unreal EULA,5.8,false,false,false,use only via licensed Unreal editor
